@@ -1,0 +1,9 @@
+{
+    "extension_api": 1,
+    "name": "RenderDoc MCP Bridge",
+    "version": "1.0.0",
+    "minimum_renderdoc": "1.20",
+    "description": "Provides MCP server bridge for AI-assisted graphics debugging",
+    "author": "RenderDocMCP",
+    "url": "https://github.com/RenderDocMCP/renderdoc-mcp"
+}

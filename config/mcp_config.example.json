@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "renderdoc": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "D:/CodeBuddy/rendering-mcp/servers/renderdoc_mcp",
+      "env": {
+        "RENDERDOC_PATH": "C:/Program Files/RenderDoc"
+      }
+    },
+    "unreal-render": {
+      "command": "python",
+      "args": ["server.py"],
+      "cwd": "D:/CodeBuddy/rendering-mcp/servers/unreal_render_mcp",
+      "env": {
+        "UE_HOST": "127.0.0.1",
+        "UE_PORT": "55557"
+      }
+    }
+  }
+}

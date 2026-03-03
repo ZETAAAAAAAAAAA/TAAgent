@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# Build outputs
+build/
+temp/
+*.obj
+*.rsp
+
+# Third-party libraries (too large, managed separately)
+thirdparty/renderdoc/
+
+# ============================================
+# Unreal Engine Build Artifacts
+# ============================================
+# Binaries
+Binaries/
+*.dll
+*.exe
+*.pdb
+
+# Build intermediates
+Intermediate/
+DerivedDataCache/
+Build/
+
+# IDE/Project files
+.vs/
+*.sln
+*.vcxproj*
+*.suo
+*.user
+*.sdf
+*.opensdf
+*.ipch
+
+# Saved logs and configs
+Saved/
+*.log
+
+# UE plugin specific
+plugins/unreal/UnrealMCP/RenderingMCP/Binaries/
+plugins/unreal/UnrealMCP/RenderingMCP/Intermediate/
+plugins/unreal/UnrealMCP/RenderingMCP/DerivedDataCache/
+plugins/unreal/UnrealMCP/RenderingMCP/Saved/
+plugins/unreal/UnrealMCP/RenderingMCP/.vs/
+
+# ============================================
+# IDE
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ============================================
+# OS
+# ============================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ============================================
+# Temporary files
+# ============================================
+$null
+*.tmp
+*.bak
+*~

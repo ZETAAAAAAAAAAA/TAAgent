@@ -220,7 +220,7 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
                 ResultJson = MakeShareable(new FJsonObject);
                 ResultJson->SetStringField(TEXT("message"), TEXT("pong"));
             }
-            // Editor Commands (including actor manipulation)
+            // Editor Commands (including actor manipulation and asset management)
             else if (CommandType == TEXT("get_actors_in_level") || 
                      CommandType == TEXT("find_actors_by_name") ||
                      CommandType == TEXT("set_actor_transform") ||
@@ -228,7 +228,14 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
                      CommandType == TEXT("import_fbx") ||
                      CommandType == TEXT("import_texture") ||
                      CommandType == TEXT("create_material_instance") ||
-                     CommandType == TEXT("set_material_instance_parameter"))
+                     CommandType == TEXT("set_material_instance_parameter") ||
+                     // Generic Asset Management (通用资产操作)
+                     CommandType == TEXT("create_asset") ||
+                     CommandType == TEXT("delete_asset") ||
+                     CommandType == TEXT("set_asset_properties") ||
+                     CommandType == TEXT("get_asset_properties") ||
+                     CommandType == TEXT("batch_create_assets") ||
+                     CommandType == TEXT("batch_set_assets_properties"))
             {
                 ResultJson = EditorCommands->HandleCommand(CommandType, Params);
             }

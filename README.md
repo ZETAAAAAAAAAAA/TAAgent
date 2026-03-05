@@ -4,142 +4,57 @@ AI-orchestrated rendering workflow MCP servers for RenderDoc to Unreal Engine as
 
 ## Overview
 
-Rendering MCP is a comprehensive toolkit that enables AI agents to analyze RenderDoc frame captures and reconstruct game assets (meshes, materials, textures) in Unreal Engine. It bridges the gap between runtime graphics debugging and content creation workflows.
+Rendering MCP enables AI agents to analyze RenderDoc frame captures and reconstruct game assets (meshes, materials, textures) in Unreal Engine.
 
 ### Key Features
 
-- **Mesh Export**: Extract meshes from draw calls to FBX format (GPU-driven rendering support)
+- **Mesh Export**: Extract meshes from draw calls to FBX (GPU-driven rendering support)
 - **Material Reconstruction**: Analyze shaders and reconstruct UE materials
 - **Material Analysis**: Read existing UE material graphs and connections
 - **Texture Extraction**: Export and identify texture types automatically
 - **DXBC Analysis**: AI-powered shader bytecode understanding
-- **UE Integration**: Direct material/asset creation, lighting, and viewport capture
-- **Lookdev Tools**: Screenshot capture and light management for asset validation
-
----
+- **UE Integration**: Direct asset creation via reflection-based generic tools
+- **Lookdev Tools**: Screenshot capture and lighting for asset validation
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              AI Agent                                    │
-│     (Understands intent → Analyzes DXBC → Orchestrates workflow)        │
-└─────────────────────────────────────────────────────────────────────────┘
-                    │                              │
-                    ▼                              ▼
-    ┌───────────────────────────┐    ┌───────────────────────────┐
-    │     RenderDoc MCP         │    │    Unreal Render MCP      │
-    │     (Capture Analysis)    │    │    (Asset Creation)       │
-    ├───────────────────────────┤    ├───────────────────────────┤
-    │ • Capture management      │    │ • Material management     │
-    │ • Draw call analysis      │    │ • Material node graphs    │
-    │ • Shader analysis (DXBC)  │    │ • Material function analysis
-    │ • Texture extraction      │    │ • Texture import          │
-    │ • Mesh export (FBX)       │    │ • FBX mesh import         │
-    │ • Buffer data access      │    │ • Lighting control        │
-    │ • Pipeline state          │    │ • Viewport capture        │
-    │                           │    │                           │
-    │ 20 tools                  │    │ 26 tools                  │
-    └───────────────────────────┘    └───────────────────────────┘
+AI Agent
+    │
+    ├──► RenderDoc MCP (20 tools)
+    │      • Capture analysis, draw calls, shaders
+    │      • Texture extraction, mesh export (FBX)
+    │
+    └──► Unreal Render MCP (23 tools)
+           • Generic asset/actor tools (reflection-based)
+           • Material graph tools
+           • Viewport capture
 ```
-
----
-
-## Directory Structure
-
-```
-rendering-mcp/
-│
-├── src/                              # Source Code
-│   ├── extension/                    # RenderDoc Python Extension
-│   │   ├── services/                 # Core services (mesh, texture, shader)
-│   │   ├── utils/                    # Utility functions
-│   │   ├── extension.json            # Extension manifest
-│   │   └── renderdoc_facade.py       # RenderDoc API wrapper
-│   │
-│   ├── servers/                      # MCP Servers
-│   │   ├── renderdoc_mcp/            # RenderDoc MCP server
-│   │   └── unreal_render_mcp/        # Unreal Render MCP server
-│   │
-│   └── scripts/                      # Utility Scripts
-│       └── install_extension.py      # RenderDoc extension installer
-│
-├── plugins/                          # Editor Plugins
-│   └── unreal/
-│       └── UnrealMCP/                # Unreal Engine MCP Plugin
-│           └── RenderingMCP/         # Sample UE Project
-│
-├── docs/                             # Documentation
-│   └── skills/                       # Skill-based Documentation
-│       ├── project-setup/            # Setup and build guides
-│       ├── renderdoc-fbx-export/     # Mesh export workflow
-│       ├── renderdoc-material-reconstruction/  # Material workflow
-│       ├── ue-development/           # UE development guides
-│       │   └── material-functions/   # UE Material Function library
-│       └── shadertoy-conversion/     # Shadertoy to UE conversion
-│
-├── thirdparty/                       # Third-party Dependencies
-│   ├── renderdoc/                    # RenderDoc source (for building)
-│   └── renderdoc2fbx/                # FBX export utilities
-│
-├── config/                           # Configuration
-│   └── mcp_config.example.json       # MCP configuration template
-│
-├── pyproject.toml                    # Python project configuration
-├── README.md                         # This file
-└── .gitignore
-```
-
----
 
 ## Installation
 
 ### Prerequisites
 
-- **Python 3.10+**
-- **RenderDoc 1.20+** (installed)
-- **Unreal Engine 5.3+**
+- Python 3.10+
+- RenderDoc 1.20+
+- Unreal Engine 5.3+
 
-### Step 1: Install Python Package
+### Setup
 
 ```bash
-# Clone the repository
+# 1. Clone and install
 git clone https://github.com/your-repo/rendering-mcp.git
 cd rendering-mcp
-
-# Install in development mode
 pip install -e .
-```
 
-### Step 2: Install RenderDoc Extension
-
-```bash
-# Install the extension to RenderDoc
+# 2. Install RenderDoc extension
 python src/scripts/install_extension.py
 
-# Output example:
-# Extension installed to C:\Users\...\AppData\Roaming\qrenderdoc\extensions\renderdoc_mcp_bridge
+# 3. Open UE project
+# plugins/unreal/UnrealMCP/RenderingMCP/RenderingMCP.uproject
 ```
 
-Enable in RenderDoc:
-1. Launch RenderDoc
-2. `Tools` → `Manage Extensions`
-3. Check `RenderDoc MCP Bridge`
-
-> To uninstall: `python src/scripts/install_extension.py uninstall`
-
-### Step 3: Unreal Engine Plugin
-
-Open `plugins/unreal/UnrealMCP/RenderingMCP/RenderingMCP.uproject`
-
-First launch will compile the plugin. Verify in output log:
-```
-LogUnrealMCP: MCP Bridge started on port 55557
-```
-
-### Step 4: Configure MCP Client
-
-Add to your MCP client configuration:
+### MCP Configuration
 
 **Claude Code / CodeBuddy** (`~/.codebuddy/mcp.json`):
 ```json
@@ -159,33 +74,6 @@ Add to your MCP client configuration:
 }
 ```
 
-### Verify Installation
-
-```
-# Test RenderDoc MCP: Open a .rdc file in RenderDoc, then:
-get_capture_status  # Should return loaded=true
-
-# Test Unreal MCP: Open UE project, then:
-get_available_materials  # Should list materials in project
-```
-
----
-
-## Skills
-
-Skills are domain-specific guides that help AI agents work effectively with this toolkit.
-
-| Skill | Description |
-|-------|-------------|
-| **project-setup** | Installation, build, and maintenance guides |
-| **renderdoc-fbx-export** | Mesh export from captures to FBX format |
-| **renderdoc-material-reconstruction** | Shader analysis and material reconstruction |
-| **ue-development** | UE material creation, analysis, and development workflows |
-| **lookdev** | Asset review environment setup and validation |
-| **shadertoy-conversion** | Convert Shadertoy shaders to UE materials |
-
----
-
 ## Tools Reference
 
 ### RenderDoc MCP (20 Tools)
@@ -193,221 +81,132 @@ Skills are domain-specific guides that help AI agents work effectively with this
 | Category | Tools |
 |----------|-------|
 | **Capture** | `get_capture_status`, `open_capture`, `list_captures`, `get_frame_summary` |
-| **Draw Calls** | `get_draw_calls`, `get_draw_call_details`, `find_draws_by_shader`, `find_draws_by_texture`, `find_draws_by_resource`, `get_action_timings` |
+| **Draw Calls** | `get_draw_calls`, `get_draw_call_details`, `find_draws_by_*`, `get_action_timings` |
 | **Shader** | `get_shader_info`, `save_shader_as_hlsl`, `get_pipeline_state` |
 | **Texture** | `get_texture_info`, `get_texture_data`, `save_texture` |
-| **Mesh/Buffer** | `get_mesh_data`, `export_mesh_as_fbx`, `get_buffer_contents`, `export_mesh_csv` |
+| **Mesh** | `get_mesh_data`, `export_mesh_as_fbx`, `get_buffer_contents`, `export_mesh_csv` |
 
 ### Unreal Render MCP (23 Tools)
 
-| Category | Tools |
-|----------|-------|
-| **Material** | `create_material`, `create_material_instance`, `create_material_function`, `set_material_instance_parameter`, `set_material_properties`, `compile_material` |
-| **Material Analysis** | `get_material_expressions`, `get_material_connections`, `get_material_functions`, `get_material_function_content`, `get_available_materials`, `get_material_properties` |
-| **Material Nodes** | `add_material_expression`, `connect_material_nodes` |
-| **Texture** | `import_texture`, `set_texture_properties` |
-| **Mesh** | `import_fbx`, `create_static_mesh_from_data` |
-| **Actor Management** | `spawn_actor`, `delete_actor`, `get_actors`, `set_actor_properties`, `get_actor_properties` |
-| **Viewport** | `get_viewport_screenshot` |
+**Generic Asset Tools** (6) - *New reflection-based*
+```python
+create_asset(type, name, path, properties)      # Any asset type
+delete_asset(path)
+set_asset_properties(path, properties)          # Universal property setting
+get_asset_properties(path, properties?)
+batch_create_assets(items)
+batch_set_assets_properties(items)
+```
 
-> **Refactored**: Actor tools now use UE Reflection System. Supports any Actor type without code changes. See [Lookdev Skill](docs/skills/lookdev/skill.md) for details.
+**Generic Actor Tools** (8) - *New reflection-based*
+```python
+spawn_actor(class, name?, location?, rotation?, scale?, properties?)
+delete_actor(name)
+get_actors(class?, detailed?)
+set_actor_properties(name, properties)          # Universal property setting
+get_actor_properties(name, properties?)
+batch_spawn_actors(items)
+batch_delete_actors(names)
+batch_set_actors_properties(items)
+```
 
----
+**Material Graph** (4): `add_material_expression`, `connect_material_nodes`, `get_material_expressions`, `get_material_connections`
+
+**Other** (5): `get_material_properties`, `get_material_functions`, `import_texture`, `import_fbx`, `get_viewport_screenshot`
 
 ## Usage Examples
 
-### Example 1: Mesh Export from Capture
+### Mesh Export from Capture
 
 ```python
-# 1. Open capture
 open_capture(capture_path="E:/captures/scene.rdc")
-
-# 2. Find target draw call
 get_draw_calls(flags_filter=["Drawcall"])
-
-# 3. Analyze shader for data sources
-get_shader_info(event_id=5249, stage="vertex")
-
-# 4. Export mesh to FBX
 export_mesh_as_fbx(
     event_id=5249,
     output_path="output/mesh.fbx",
     attribute_mapping={
         "POSITION": "vs_input:ATTRIBUTE0",
-        "NORMAL": "buffer:Buffer1",
-        "TANGENT": "buffer:Buffer1",
-        "UV": "vs_output:TEXCOORD0"
+        "NORMAL": "buffer:Buffer1"
     },
-    buffer_config={
-        "Buffer1": {
-            "stride": 32,
-            "normal_offset": 16,
-            "tangent_offset": 0,
-            "format": "float4"
-        }
-    },
-    coordinate_system="ue",
-    unit_scale=1
+    buffer_config={"Buffer1": {"stride": 32, "normal_offset": 16}}
 )
 ```
 
-### Example 2: Material Reconstruction
+### Generic Asset Creation (Reflection-Based)
 
 ```python
-# 1. Get shader info
-get_shader_info(event_id=123, stage="pixel")
+# Create any asset type
+create_asset("Material", "M_Red", "/Game/Materials/")
+create_asset("MaterialInstance", "MI_Red", properties={"parent": "/Game/Materials/M_Base"})
 
-# 2. Get pipeline state for textures
-get_pipeline_state(event_id=123)
+# Set properties (universal interface)
+set_asset_properties("/Game/Materials/M_Red.M_Red", {
+    "shading_model": "DefaultLit",
+    "blend_mode": "Opaque"
+})
 
-# 3. Export textures
-save_texture(resource_id="Texture2D::12345", 
-             output_path="textures/basecolor.png")
-
-# 4. Create UE material
-create_material(name="M_Reconstructed")
-
-# 5. Set properties based on shader analysis
-set_material_properties(
-    material_name="M_Reconstructed",
-    blend_mode="Translucent",
-    shading_model="Subsurface"
-)
-
-# 6. Import textures
-import_texture(source_path="textures/basecolor.png", name="T_BaseColor")
-
-# 7. Add material nodes
-add_material_expression(
-    material_name="M_Reconstructed",
-    expression_type="TextureSampleParameter2D",
-    parameter_name="BaseColor"
-)
-
-# 8. Connect nodes
-connect_material_nodes(
-    material_name="M_Reconstructed",
-    source_node="node_id",
-    source_output="RGB",
-    target_node="Material",
-    target_input="BaseColor"
-)
+# Batch operations
+batch_create_assets([
+    {"asset_type": "Material", "name": "M_Red"},
+    {"asset_type": "Material", "name": "M_Green"},
+    {"asset_type": "MaterialInstance", "name": "MI_Red", "properties": {"parent": "/Game/Materials/M_Base"}}
+])
 ```
 
-### Example 3: Material Analysis
+### Generic Actor Spawning (Reflection-Based)
 
 ```python
-# Analyze existing material structure
-get_material_properties(material_name="/Game/Materials/M_Water")
-get_material_expressions(material_name="/Game/Materials/M_Water")
-get_material_connections(material_name="/Game/Materials/M_Water")
+# Spawn any actor type
+spawn_actor("DirectionalLight", "KeyLight",
+    rotation={"pitch": -45, "yaw": 30},
+    properties={"intensity": 10.0, "cast_shadows": True})
 
-# Analyze Material Function with internal connections
-get_material_function_content(
-    function_path="/Engine/Functions/Engine_MaterialFunctions01/Texturing/BitMask.BitMask"
-)
-# Returns: inputs, outputs, expressions, and connections between internal nodes
-```
-
-### Example 4: Lookdev Environment (Refactored)
-
-```python
-# Generic actor spawning - supports any UE Actor class via reflection
-spawn_actor(
-    actor_class="DirectionalLight",
-    name="KeyLight",
-    rotation={"pitch": -45, "yaw": 30, "roll": 0},
-    properties={
-        "intensity": 10.0,
-        "bCastShadows": True
-    }
-)
-
-# Create material ball and gray card
-spawn_actor(
-    actor_class="StaticMeshActor",
-    name="MaterialBall",
+spawn_actor("StaticMeshActor", "MaterialBall",
     location={"x": 0, "y": 0, "z": 100},
-    properties={"static_mesh": "/Engine/BasicShapes/Sphere"}
-)
+    properties={"static_mesh": "/Engine/BasicShapes/Sphere"})
 
-# Modify any property via reflection - matches UE UPROPERTY names
-set_actor_properties(
-    name="KeyLight",
-    properties={
-        "intensity": 15.0,
-        "temperature": 6500
-        # Unmatched properties are silently ignored
-    }
-)
+# Batch operations
+batch_spawn_actors([
+    {"actor_class": "Sphere", "name": "Ball1"},
+    {"actor_class": "Sphere", "name": "Ball2"},
+    {"actor_class": "DirectionalLight", "name": "KeyLight", "properties": {"intensity": 10}}
+])
 
-# List actors with filtering
-get_actors(actor_class="Light")
-get_actors(actor_class="StaticMesh", detailed=True)
-
-# Capture viewport screenshot for review
-get_viewport_screenshot(
-    output_path="C:/renders/asset_review.png",
-    format="png"
-)
+batch_set_actors_properties([
+    {"name": "KeyLight", "properties": {"intensity": 15.0}},
+    {"name": "FillLight", "properties": {"intensity": 8.0}}
+])
 ```
 
-> **New**: 5 generic tools replace 8+ specialized tools. Supports any Actor type without code changes.
+## Skills
 
----
+| Skill | Description |
+|-------|-------------|
+| **project-setup** | Installation and build guides |
+| **renderdoc-fbx-export** | Mesh export workflow |
+| **renderdoc-material-reconstruction** | Shader analysis and material reconstruction |
+| **ue-development** | UE generic asset/actor tools, material graphs |
+| **lookdev** | Asset validation environment |
+| **shadertoy-conversion** | Shadertoy to UE conversion |
 
 ## Documentation
 
-Comprehensive documentation is available in `docs/skills/`:
-
-| Document | Description |
-|----------|-------------|
-| **FBX Export Workflow** | `docs/skills/renderdoc-fbx-export/workflow.md` |
-| **Material Reconstruction** | `docs/skills/renderdoc-material-reconstruction/workflow.md` |
-| **DXBC Analysis Guide** | `docs/skills/renderdoc-material-reconstruction/dxbc-analysis.md` |
-| **UE Tools Reference** | `docs/skills/ue-development/tools-reference.md` - Complete tool documentation |
-| **Material Analysis** | `docs/skills/ue-development/material-analysis.md` - Reading UE materials |
-| **Lookdev Guide** | `docs/skills/lookdev/skill.md` - Asset validation environment setup |
-| **Update & Build Guide** | `docs/skills/project-setup/update-and-build.md` |
-
----
-
-## Development
-
-### Project Structure for Developers
-
-| Directory | Purpose |
-|-----------|---------|
-| `src/extension/` | RenderDoc Python extension (runs in RenderDoc process) |
-| `src/servers/renderdoc_mcp/` | MCP server for RenderDoc (runs in MCP client) |
-| `src/servers/unreal_render_mcp/` | MCP server for Unreal (runs in MCP client) |
-| `plugins/unreal/UnrealMCP/` | UE plugin with TCP server |
-
-### Key Files
-
-| File | Description |
-|------|-------------|
-| `src/extension/services/resource_service.py` | Mesh export, texture extraction |
-| `src/extension/services/shader_service.py` | DXBC analysis, shader utilities |
-| `src/servers/renderdoc_mcp/mcp_server/server.py` | MCP tool definitions |
-| `plugins/unreal/UnrealMCP/Source/` | UE plugin C++ source |
-
----
+| Document | Path |
+|----------|------|
+| FBX Export Workflow | `docs/skills/renderdoc-fbx-export/workflow.md` |
+| Material Reconstruction | `docs/skills/renderdoc-material-reconstruction/workflow.md` |
+| UE Tools Reference | `docs/skills/ue-development/skill.md` |
+| Lookdev Guide | `docs/skills/lookdev/skill.md` |
+| Update & Build | `docs/skills/project-setup/update-and-build.md` |
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
 | MCP connection failed | Check config path and server status |
-| RenderDoc extension not loading | Verify extension path in RenderDoc settings |
-| UE plugin not working | Rebuild plugin for your UE version |
-| Import errors | Reinstall: `pip install -e .` |
 | FBX normals inverted | Set `flip_winding_order=True` |
-| UE 5.7 compile errors | Use `TSharedPtr<SLevelViewport>` not `TSharedPtr<IAssetViewport>` |
-| GPU-driven mesh export | Use `buffer_config` parameter with GPU buffer offsets |
-| Material function connections not showing | Ensure UE plugin is updated to latest version |
-
----
+| GPU-driven mesh export | Use `buffer_config` parameter |
+| UE compile errors | Rebuild plugin for your UE version |
 
 ## License
 

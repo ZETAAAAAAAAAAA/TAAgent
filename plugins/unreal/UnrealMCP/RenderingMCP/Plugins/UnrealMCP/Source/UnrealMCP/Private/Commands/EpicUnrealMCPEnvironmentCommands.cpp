@@ -201,6 +201,19 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleCommand(const F
     {
         return HandleGetActorProperties(Params);
     }
+    // Batch operations (批量操作)
+    else if (CommandType == TEXT("batch_spawn_actors"))
+    {
+        return HandleBatchSpawnActors(Params);
+    }
+    else if (CommandType == TEXT("batch_delete_actors"))
+    {
+        return HandleBatchDeleteActors(Params);
+    }
+    else if (CommandType == TEXT("batch_set_actors_properties"))
+    {
+        return HandleBatchSetActorsProperties(Params);
+    }
     else if (CommandType == TEXT("get_viewport_screenshot"))
     {
         return HandleGetViewportScreenshot(Params);
@@ -1234,4 +1247,195 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleSpawnBasicActor
 TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleSetActorMaterial(const TSharedPtr<FJsonObject>& Params)
 {
     return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("set_actor_material is deprecated, use set_actor_properties with material property instead"));
+}
+
+// ============================================================================
+// Batch Actor Management (批量操作)
+// ============================================================================
+TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleBatchSpawnActors(const TSharedPtr<FJsonObject>& Params)
+{
+    if (!GEditor)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Editor not available"));
+    }
+
+    const TArray<TSharedPtr<FJsonValue>>* ItemsArray;
+    if (!Params->TryGetArrayField(TEXT("items"), ItemsArray))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'items' parameter"));
+    }
+
+    TArray<TSharedPtr<FJsonValue>> Results;
+    int32 SuccessCount = 0;
+    int32 FailCount = 0;
+
+    for (int32 i = 0; i < ItemsArray->Num(); ++i)
+    {
+        const TSharedPtr<FJsonObject>* ItemObj;
+        if (!(*ItemsArray)[i]->TryGetObject(ItemObj))
+        {
+            TSharedPtr<FJsonObject> ErrorResult = MakeShared<FJsonObject>();
+            ErrorResult->SetBoolField(TEXT("success"), false);
+            ErrorResult->SetStringField(TEXT("error"), TEXT("Invalid item format"));
+            Results.Add(MakeShared<FJsonValueObject>(ErrorResult));
+            FailCount++;
+            continue;
+        }
+
+        TSharedPtr<FJsonObject> Result = HandleSpawnActor(*ItemObj);
+        Results.Add(MakeShared<FJsonValueObject>(Result));
+        
+        if (Result->GetBoolField(TEXT("success")))
+        {
+            SuccessCount++;
+        }
+        else
+        {
+            FailCount++;
+        }
+    }
+
+    GEditor->RedrawLevelEditingViewports();
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), true);
+    ResultObj->SetArrayField(TEXT("results"), Results);
+    ResultObj->SetNumberField(TEXT("success_count"), SuccessCount);
+    ResultObj->SetNumberField(TEXT("fail_count"), FailCount);
+    ResultObj->SetNumberField(TEXT("total_count"), ItemsArray->Num());
+
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleBatchDeleteActors(const TSharedPtr<FJsonObject>& Params)
+{
+    if (!GEditor)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Editor not available"));
+    }
+
+    const TArray<TSharedPtr<FJsonValue>>* NamesArray;
+    if (!Params->TryGetArrayField(TEXT("names"), NamesArray))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'names' parameter"));
+    }
+
+    UWorld* World = GEditor->GetEditorWorldContext().World();
+    if (!World)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("No active world found"));
+    }
+
+    TArray<FString> Deleted;
+    TArray<FString> Failed;
+
+    for (const auto& NameValue : *NamesArray)
+    {
+        FString ActorName = NameValue->AsString();
+        if (ActorName.IsEmpty())
+        {
+            Failed.Add(TEXT("(empty name)"));
+            continue;
+        }
+
+        bool bFound = false;
+        for (TActorIterator<AActor> It(World); It; ++It)
+        {
+            if (It->GetName() == ActorName)
+            {
+                It->Destroy();
+                Deleted.Add(ActorName);
+                bFound = true;
+                break;
+            }
+        }
+
+        if (!bFound)
+        {
+            Failed.Add(ActorName);
+        }
+    }
+
+    GEditor->RedrawLevelEditingViewports();
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), true);
+    
+    TArray<TSharedPtr<FJsonValue>> DeletedArray;
+    for (const FString& Name : Deleted)
+    {
+        DeletedArray.Add(MakeShared<FJsonValueString>(Name));
+    }
+    ResultObj->SetArrayField(TEXT("deleted"), DeletedArray);
+
+    if (Failed.Num() > 0)
+    {
+        TArray<TSharedPtr<FJsonValue>> FailedArray;
+        for (const FString& Name : Failed)
+        {
+            FailedArray.Add(MakeShared<FJsonValueString>(Name));
+        }
+        ResultObj->SetArrayField(TEXT("failed"), FailedArray);
+    }
+
+    ResultObj->SetNumberField(TEXT("deleted_count"), Deleted.Num());
+    ResultObj->SetNumberField(TEXT("failed_count"), Failed.Num());
+    ResultObj->SetNumberField(TEXT("total_count"), NamesArray->Num());
+
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleBatchSetActorsProperties(const TSharedPtr<FJsonObject>& Params)
+{
+    if (!GEditor)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Editor not available"));
+    }
+
+    const TArray<TSharedPtr<FJsonValue>>* ActorsArray;
+    if (!Params->TryGetArrayField(TEXT("actors"), ActorsArray))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'actors' parameter"));
+    }
+
+    TArray<TSharedPtr<FJsonValue>> Results;
+    int32 SuccessCount = 0;
+    int32 FailCount = 0;
+
+    for (int32 i = 0; i < ActorsArray->Num(); ++i)
+    {
+        const TSharedPtr<FJsonObject>* ActorObj;
+        if (!(*ActorsArray)[i]->TryGetObject(ActorObj))
+        {
+            TSharedPtr<FJsonObject> ErrorResult = MakeShared<FJsonObject>();
+            ErrorResult->SetBoolField(TEXT("success"), false);
+            ErrorResult->SetStringField(TEXT("error"), TEXT("Invalid actor format"));
+            Results.Add(MakeShared<FJsonValueObject>(ErrorResult));
+            FailCount++;
+            continue;
+        }
+
+        TSharedPtr<FJsonObject> Result = HandleSetActorProperties(*ActorObj);
+        Results.Add(MakeShared<FJsonValueObject>(Result));
+        
+        if (Result->GetBoolField(TEXT("success")))
+        {
+            SuccessCount++;
+        }
+        else
+        {
+            FailCount++;
+        }
+    }
+
+    GEditor->RedrawLevelEditingViewports();
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), true);
+    ResultObj->SetArrayField(TEXT("results"), Results);
+    ResultObj->SetNumberField(TEXT("success_count"), SuccessCount);
+    ResultObj->SetNumberField(TEXT("fail_count"), FailCount);
+    ResultObj->SetNumberField(TEXT("total_count"), ActorsArray->Num());
+
+    return ResultObj;
 }

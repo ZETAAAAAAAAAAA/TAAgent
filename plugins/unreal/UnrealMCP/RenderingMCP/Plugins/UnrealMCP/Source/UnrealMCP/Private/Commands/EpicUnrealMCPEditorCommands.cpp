@@ -91,6 +91,31 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleCommand(const FStrin
     {
         return HandleCreateStaticMeshFromData(Params);
     }
+    // Generic Asset Management (通用资产操作)
+    else if (CommandType == TEXT("create_asset"))
+    {
+        return HandleCreateAsset(Params);
+    }
+    else if (CommandType == TEXT("delete_asset"))
+    {
+        return HandleDeleteAsset(Params);
+    }
+    else if (CommandType == TEXT("set_asset_properties"))
+    {
+        return HandleSetAssetProperties(Params);
+    }
+    else if (CommandType == TEXT("get_asset_properties"))
+    {
+        return HandleGetAssetProperties(Params);
+    }
+    else if (CommandType == TEXT("batch_create_assets"))
+    {
+        return HandleBatchCreateAssets(Params);
+    }
+    else if (CommandType == TEXT("batch_set_assets_properties"))
+    {
+        return HandleBatchSetAssetsProperties(Params);
+    }
     
     return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown editor command: %s"), *CommandType));
 }
@@ -1267,6 +1292,649 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleCreateStaticMeshFrom
             }
         }
     }
+
+    return ResultObj;
+}
+
+// ============================================================================
+// Generic Asset Management (通用资产操作 - Refactored)
+// ============================================================================
+
+UClass* FEpicUnrealMCPEditorCommands::FindAssetClassByName(const FString& TypeName)
+{
+    if (TypeName.IsEmpty())
+    {
+        return nullptr;
+    }
+
+    // Common asset type mappings
+    TMap<FString, FString> TypeMappings;
+    TypeMappings.Add(TEXT("Material"), TEXT("/Script/Engine.Material"));
+    TypeMappings.Add(TEXT("MaterialInstance"), TEXT("/Script/Engine.MaterialInstanceConstant"));
+    TypeMappings.Add(TEXT("MaterialInstanceConstant"), TEXT("/Script/Engine.MaterialInstanceConstant"));
+    TypeMappings.Add(TEXT("MaterialFunction"), TEXT("/Script/Engine.MaterialFunction"));
+    TypeMappings.Add(TEXT("Texture"), TEXT("/Script/Engine.Texture2D"));
+    TypeMappings.Add(TEXT("Texture2D"), TEXT("/Script/Engine.Texture2D"));
+    TypeMappings.Add(TEXT("StaticMesh"), TEXT("/Script/Engine.StaticMesh"));
+
+    // Try direct mapping first
+    if (TypeMappings.Contains(TypeName))
+    {
+        UClass* FoundClass = FindObject<UClass>(nullptr, *TypeMappings[TypeName]);
+        if (FoundClass)
+        {
+            return FoundClass;
+        }
+    }
+
+    // Try with various prefixes
+    TArray<FString> PossibleNames;
+    PossibleNames.Add(TypeName);
+    PossibleNames.Add(TEXT("U") + TypeName);
+    PossibleNames.Add(TEXT("/Script/Engine.") + TypeName);
+    PossibleNames.Add(TEXT("/Script/Engine.U") + TypeName);
+
+    for (const FString& Name : PossibleNames)
+    {
+        UClass* FoundClass = FindObject<UClass>(nullptr, *Name);
+        if (FoundClass)
+        {
+            return FoundClass;
+        }
+    }
+
+    // Fallback: iterate all classes
+    for (TObjectIterator<UClass> It; It; ++It)
+    {
+        if (It->GetName() == TypeName ||
+            It->GetName() == TEXT("U") + TypeName)
+        {
+            return *It;
+        }
+    }
+
+    return nullptr;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleCreateAsset(const TSharedPtr<FJsonObject>& Params)
+{
+    FString AssetType;
+    if (!Params->TryGetStringField(TEXT("asset_type"), AssetType))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'asset_type' parameter"));
+    }
+
+    FString Name;
+    if (!Params->TryGetStringField(TEXT("name"), Name))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'name' parameter"));
+    }
+
+    FString Path = TEXT("/Game/");
+    Params->TryGetStringField(TEXT("path"), Path);
+
+    // Find asset class
+    UClass* AssetClass = FindAssetClassByName(AssetType);
+    if (!AssetClass)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown asset type: %s"), *AssetType));
+    }
+
+    // Ensure path exists
+    UEditorAssetLibrary::MakeDirectory(Path);
+
+    // Create package
+    FString PackageName = Path + Name;
+    UPackage* Package = CreatePackage(*PackageName);
+    if (!Package)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to create package"));
+    }
+
+    // Create the asset
+    UObject* NewAsset = NewObject<UObject>(Package, AssetClass, *Name, RF_Public | RF_Standalone);
+    if (!NewAsset)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to create asset"));
+    }
+
+    // Handle special initialization for known types
+    if (AssetType == TEXT("MaterialInstance") || AssetType == TEXT("MaterialInstanceConstant"))
+    {
+        UMaterialInstanceConstant* MaterialInstance = Cast<UMaterialInstanceConstant>(NewAsset);
+        if (MaterialInstance)
+        {
+            const TSharedPtr<FJsonObject>* PropertiesObj;
+            if (Params->TryGetObjectField(TEXT("properties"), PropertiesObj))
+            {
+                FString ParentPath;
+                if (PropertiesObj->Get()->TryGetStringField(TEXT("parent_material"), ParentPath) ||
+                    PropertiesObj->Get()->TryGetStringField(TEXT("parent"), ParentPath))
+                {
+                    UMaterialInterface* ParentMaterial = LoadObject<UMaterialInterface>(nullptr, *ParentPath);
+                    if (ParentMaterial)
+                    {
+                        MaterialInstance->SetParentEditorOnly(ParentMaterial);
+                    }
+                }
+            }
+            MaterialInstance->PostEditChange();
+        }
+    }
+    else if (AssetType == TEXT("Material"))
+    {
+        UMaterial* Material = Cast<UMaterial>(NewAsset);
+        if (Material)
+        {
+            Material->PostEditChange();
+        }
+    }
+    else if (AssetType == TEXT("MaterialFunction"))
+    {
+        UMaterialFunction* MaterialFunction = Cast<UMaterialFunction>(NewAsset);
+        if (MaterialFunction)
+        {
+            // MaterialFunction description is set via Description property directly
+            MaterialFunction->PostEditChange();
+        }
+    }
+
+    // Apply generic properties
+    const TSharedPtr<FJsonObject>* PropertiesObj;
+    if (Params->TryGetObjectField(TEXT("properties"), PropertiesObj))
+    {
+        FString Error;
+        for (const auto& Pair : PropertiesObj->Get()->Values)
+        {
+            SetUObjectProperty(NewAsset, Pair.Key, Pair.Value, Error);
+        }
+    }
+
+    // Notify asset registry and save
+    FAssetRegistryModule::AssetCreated(NewAsset);
+    Package->MarkPackageDirty();
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), true);
+    ResultObj->SetStringField(TEXT("asset_path"), NewAsset->GetPathName());
+    ResultObj->SetStringField(TEXT("asset_type"), AssetClass->GetName());
+    ResultObj->SetStringField(TEXT("name"), Name);
+
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleDeleteAsset(const TSharedPtr<FJsonObject>& Params)
+{
+    FString AssetPath;
+    if (!Params->TryGetStringField(TEXT("asset_path"), AssetPath))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'asset_path' parameter"));
+    }
+
+    bool bDeleted = UEditorAssetLibrary::DeleteAsset(AssetPath);
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), bDeleted);
+    ResultObj->SetStringField(TEXT("asset_path"), AssetPath);
+
+    if (!bDeleted)
+    {
+        ResultObj->SetStringField(TEXT("error"), TEXT("Failed to delete asset"));
+    }
+
+    return ResultObj;
+}
+
+bool FEpicUnrealMCPEditorCommands::SetUObjectProperty(UObject* Object, const FString& PropertyName, const TSharedPtr<FJsonValue>& Value, FString& OutError)
+{
+    if (!Object)
+    {
+        OutError = TEXT("Invalid object");
+        return false;
+    }
+
+    FProperty* Property = Object->GetClass()->FindPropertyByName(*PropertyName);
+    if (!Property)
+    {
+        // Try case-insensitive search
+        for (TFieldIterator<FProperty> PropIt(Object->GetClass()); PropIt; ++PropIt)
+        {
+            if (PropIt->GetName().Equals(PropertyName, ESearchCase::IgnoreCase))
+            {
+                Property = *PropIt;
+                break;
+            }
+        }
+    }
+
+    if (!Property)
+    {
+        OutError = FString::Printf(TEXT("Property '%s' not found"), *PropertyName);
+        return false;
+    }
+
+    void* PropertyAddr = Property->ContainerPtrToValuePtr<void>(Object);
+
+    // Bool
+    if (FBoolProperty* BoolProp = CastField<FBoolProperty>(Property))
+    {
+        bool bValue = Value->AsBool();
+        BoolProp->SetPropertyValue(PropertyAddr, bValue);
+        return true;
+    }
+    // Int
+    else if (FIntProperty* IntProp = CastField<FIntProperty>(Property))
+    {
+        int32 IntValue = static_cast<int32>(Value->AsNumber());
+        IntProp->SetPropertyValue(PropertyAddr, IntValue);
+        return true;
+    }
+    // Float
+    else if (FFloatProperty* FloatProp = CastField<FFloatProperty>(Property))
+    {
+        float FloatValue = static_cast<float>(Value->AsNumber());
+        FloatProp->SetPropertyValue(PropertyAddr, FloatValue);
+        return true;
+    }
+    // String
+    else if (FStrProperty* StrProp = CastField<FStrProperty>(Property))
+    {
+        FString StrValue = Value->AsString();
+        StrProp->SetPropertyValue(PropertyAddr, StrValue);
+        return true;
+    }
+    // Name
+    else if (FNameProperty* NameProp = CastField<FNameProperty>(Property))
+    {
+        FName NameValue(*Value->AsString());
+        NameProp->SetPropertyValue(PropertyAddr, NameValue);
+        return true;
+    }
+    // Enum (Byte)
+    else if (FByteProperty* ByteProp = CastField<FByteProperty>(Property))
+    {
+        if (ByteProp->GetIntPropertyEnum())
+        {
+            int64 EnumValue = static_cast<int64>(Value->AsNumber());
+            ByteProp->SetPropertyValue(PropertyAddr, static_cast<uint8>(EnumValue));
+            return true;
+        }
+    }
+    // Enum property
+    else if (FEnumProperty* EnumProp = CastField<FEnumProperty>(Property))
+    {
+        int64 EnumValue = static_cast<int64>(Value->AsNumber());
+        EnumProp->GetUnderlyingProperty()->SetIntPropertyValue(PropertyAddr, EnumValue);
+        return true;
+    }
+    // Struct (Vector, Color, etc.)
+    else if (FStructProperty* StructProp = CastField<FStructProperty>(Property))
+    {
+        // Handle LinearColor
+        if (StructProp->Struct == TBaseStructure<FLinearColor>::Get())
+        {
+            const TArray<TSharedPtr<FJsonValue>>* Arr;
+            if (Value->TryGetArray(Arr) && Arr->Num() >= 3)
+            {
+                float R = static_cast<float>((*Arr)[0]->AsNumber());
+                float G = static_cast<float>((*Arr)[1]->AsNumber());
+                float B = static_cast<float>((*Arr)[2]->AsNumber());
+                float A = Arr->Num() > 3 ? static_cast<float>((*Arr)[3]->AsNumber()) : 1.0f;
+                FLinearColor* Color = (FLinearColor*)PropertyAddr;
+                *Color = FLinearColor(R, G, B, A);
+                return true;
+            }
+        }
+    }
+
+    OutError = FString::Printf(TEXT("Unsupported property type for '%s'"), *PropertyName);
+    return false;
+}
+
+TSharedPtr<FJsonValue> FEpicUnrealMCPEditorCommands::GetUObjectPropertyAsJson(UObject* Object, const FString& PropertyName)
+{
+    if (!Object)
+    {
+        return MakeShared<FJsonValueNull>();
+    }
+
+    FProperty* Property = Object->GetClass()->FindPropertyByName(*PropertyName);
+    if (!Property)
+    {
+        // Try case-insensitive
+        for (TFieldIterator<FProperty> PropIt(Object->GetClass()); PropIt; ++PropIt)
+        {
+            if (PropIt->GetName().Equals(PropertyName, ESearchCase::IgnoreCase))
+            {
+                Property = *PropIt;
+                break;
+            }
+        }
+    }
+
+    if (!Property)
+    {
+        return MakeShared<FJsonValueNull>();
+    }
+
+    void* PropertyAddr = Property->ContainerPtrToValuePtr<void>(Object);
+
+    // Bool
+    if (FBoolProperty* BoolProp = CastField<FBoolProperty>(Property))
+    {
+        return MakeShared<FJsonValueBoolean>(BoolProp->GetPropertyValue(PropertyAddr));
+    }
+    // Int
+    else if (FIntProperty* IntProp = CastField<FIntProperty>(Property))
+    {
+        return MakeShared<FJsonValueNumber>(IntProp->GetPropertyValue(PropertyAddr));
+    }
+    // Float
+    else if (FFloatProperty* FloatProp = CastField<FFloatProperty>(Property))
+    {
+        return MakeShared<FJsonValueNumber>(FloatProp->GetPropertyValue(PropertyAddr));
+    }
+    // Double
+    else if (FDoubleProperty* DoubleProp = CastField<FDoubleProperty>(Property))
+    {
+        return MakeShared<FJsonValueNumber>(DoubleProp->GetPropertyValue(PropertyAddr));
+    }
+    // String
+    else if (FStrProperty* StrProp = CastField<FStrProperty>(Property))
+    {
+        return MakeShared<FJsonValueString>(StrProp->GetPropertyValue(PropertyAddr));
+    }
+    // Name
+    else if (FNameProperty* NameProp = CastField<FNameProperty>(Property))
+    {
+        return MakeShared<FJsonValueString>(NameProp->GetPropertyValue(PropertyAddr).ToString());
+    }
+    // Text
+    else if (FTextProperty* TextProp = CastField<FTextProperty>(Property))
+    {
+        return MakeShared<FJsonValueString>(TextProp->GetPropertyValue(PropertyAddr).ToString());
+    }
+    // Enum
+    else if (FEnumProperty* EnumProp = CastField<FEnumProperty>(Property))
+    {
+        int64 Value = EnumProp->GetUnderlyingProperty()->GetSignedIntPropertyValue(PropertyAddr);
+        return MakeShared<FJsonValueNumber>(Value);
+    }
+    else if (FByteProperty* ByteProp = CastField<FByteProperty>(Property))
+    {
+        if (ByteProp->GetIntPropertyEnum())
+        {
+            return MakeShared<FJsonValueNumber>(ByteProp->GetPropertyValue(PropertyAddr));
+        }
+    }
+    // Struct
+    else if (FStructProperty* StructProp = CastField<FStructProperty>(Property))
+    {
+        if (StructProp->Struct == TBaseStructure<FLinearColor>::Get())
+        {
+            FLinearColor* Color = (FLinearColor*)PropertyAddr;
+            TArray<TSharedPtr<FJsonValue>> Arr;
+            Arr.Add(MakeShared<FJsonValueNumber>(Color->R));
+            Arr.Add(MakeShared<FJsonValueNumber>(Color->G));
+            Arr.Add(MakeShared<FJsonValueNumber>(Color->B));
+            Arr.Add(MakeShared<FJsonValueNumber>(Color->A));
+            return MakeShared<FJsonValueArray>(Arr);
+        }
+        else if (StructProp->Struct == TBaseStructure<FColor>::Get())
+        {
+            FColor* Color = (FColor*)PropertyAddr;
+            TArray<TSharedPtr<FJsonValue>> Arr;
+            Arr.Add(MakeShared<FJsonValueNumber>(Color->R));
+            Arr.Add(MakeShared<FJsonValueNumber>(Color->G));
+            Arr.Add(MakeShared<FJsonValueNumber>(Color->B));
+            Arr.Add(MakeShared<FJsonValueNumber>(Color->A));
+            return MakeShared<FJsonValueArray>(Arr);
+        }
+    }
+
+    return MakeShared<FJsonValueString>(TEXT("(unsupported type)"));
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::GetAllUObjectPropertiesAsJson(UObject* Object)
+{
+    TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
+
+    if (!Object)
+    {
+        return Result;
+    }
+
+    for (TFieldIterator<FProperty> PropIt(Object->GetClass()); PropIt; ++PropIt)
+    {
+        FProperty* Property = *PropIt;
+        if (Property->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
+        {
+            FString PropName = Property->GetName();
+            TSharedPtr<FJsonValue> PropValue = GetUObjectPropertyAsJson(Object, PropName);
+            if (!PropValue->IsNull())
+            {
+                Result->SetField(PropName, PropValue);
+            }
+        }
+    }
+
+    return Result;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleSetAssetProperties(const TSharedPtr<FJsonObject>& Params)
+{
+    FString AssetPath;
+    if (!Params->TryGetStringField(TEXT("asset_path"), AssetPath))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'asset_path' parameter"));
+    }
+
+    const TSharedPtr<FJsonObject>* PropertiesObj;
+    if (!Params->TryGetObjectField(TEXT("properties"), PropertiesObj))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'properties' parameter"));
+    }
+
+    // Load the asset
+    UObject* Asset = StaticLoadObject(UObject::StaticClass(), nullptr, *AssetPath);
+    if (!Asset)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to load asset: %s"), *AssetPath));
+    }
+
+    TArray<FString> ModifiedProperties;
+    TArray<FString> FailedProperties;
+
+    for (const auto& Pair : PropertiesObj->Get()->Values)
+    {
+        FString Error;
+        if (SetUObjectProperty(Asset, Pair.Key, Pair.Value, Error))
+        {
+            ModifiedProperties.Add(Pair.Key);
+        }
+        else
+        {
+            FailedProperties.Add(Pair.Key + TEXT(": ") + Error);
+        }
+    }
+
+    // Mark package dirty
+    Asset->MarkPackageDirty();
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), true);
+    ResultObj->SetStringField(TEXT("asset_path"), AssetPath);
+    ResultObj->SetNumberField(TEXT("modified_count"), ModifiedProperties.Num());
+    ResultObj->SetNumberField(TEXT("failed_count"), FailedProperties.Num());
+
+    TArray<TSharedPtr<FJsonValue>> ModifiedArray;
+    for (const FString& Prop : ModifiedProperties)
+    {
+        ModifiedArray.Add(MakeShared<FJsonValueString>(Prop));
+    }
+    ResultObj->SetArrayField(TEXT("modified_properties"), ModifiedArray);
+
+    if (FailedProperties.Num() > 0)
+    {
+        TArray<TSharedPtr<FJsonValue>> FailedArray;
+        for (const FString& Fail : FailedProperties)
+        {
+            FailedArray.Add(MakeShared<FJsonValueString>(Fail));
+        }
+        ResultObj->SetArrayField(TEXT("failed_properties"), FailedArray);
+    }
+
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleGetAssetProperties(const TSharedPtr<FJsonObject>& Params)
+{
+    FString AssetPath;
+    if (!Params->TryGetStringField(TEXT("asset_path"), AssetPath))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'asset_path' parameter"));
+    }
+
+    // Load the asset
+    UObject* Asset = StaticLoadObject(UObject::StaticClass(), nullptr, *AssetPath);
+    if (!Asset)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to load asset: %s"), *AssetPath));
+    }
+
+    // Optional: specific properties to get
+    TArray<FString> RequestedProperties;
+    const TArray<TSharedPtr<FJsonValue>>* PropsArray;
+    if (Params->TryGetArrayField(TEXT("properties"), PropsArray))
+    {
+        for (const auto& Val : *PropsArray)
+        {
+            RequestedProperties.Add(Val->AsString());
+        }
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), true);
+    ResultObj->SetStringField(TEXT("asset_path"), AssetPath);
+    ResultObj->SetStringField(TEXT("asset_class"), Asset->GetClass()->GetName());
+
+    TSharedPtr<FJsonObject> PropertiesObj = MakeShared<FJsonObject>();
+
+    if (RequestedProperties.Num() > 0)
+    {
+        // Get specific properties
+        for (const FString& PropName : RequestedProperties)
+        {
+            TSharedPtr<FJsonValue> PropValue = GetUObjectPropertyAsJson(Asset, PropName);
+            if (!PropValue->IsNull())
+            {
+                PropertiesObj->SetField(PropName, PropValue);
+            }
+        }
+    }
+    else
+    {
+        // Get all editable properties
+        PropertiesObj = GetAllUObjectPropertiesAsJson(Asset);
+    }
+
+    ResultObj->SetObjectField(TEXT("properties"), PropertiesObj);
+
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleBatchCreateAssets(const TSharedPtr<FJsonObject>& Params)
+{
+    const TArray<TSharedPtr<FJsonValue>>* ItemsArray;
+    if (!Params->TryGetArrayField(TEXT("items"), ItemsArray))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'items' parameter"));
+    }
+
+    TArray<TSharedPtr<FJsonValue>> Results;
+    int32 SuccessCount = 0;
+    int32 FailCount = 0;
+
+    for (int32 i = 0; i < ItemsArray->Num(); ++i)
+    {
+        const TSharedPtr<FJsonObject>* ItemObj;
+        if (!(*ItemsArray)[i]->TryGetObject(ItemObj))
+        {
+            TSharedPtr<FJsonObject> ErrorResult = MakeShared<FJsonObject>();
+            ErrorResult->SetBoolField(TEXT("success"), false);
+            ErrorResult->SetStringField(TEXT("error"), TEXT("Invalid item format"));
+            Results.Add(MakeShared<FJsonValueObject>(ErrorResult));
+            FailCount++;
+            continue;
+        }
+
+        TSharedPtr<FJsonObject> Result = HandleCreateAsset(*ItemObj);
+        Results.Add(MakeShared<FJsonValueObject>(Result));
+
+        if (Result->GetBoolField(TEXT("success")))
+        {
+            SuccessCount++;
+        }
+        else
+        {
+            FailCount++;
+        }
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), true);
+    ResultObj->SetArrayField(TEXT("results"), Results);
+    ResultObj->SetNumberField(TEXT("success_count"), SuccessCount);
+    ResultObj->SetNumberField(TEXT("fail_count"), FailCount);
+    ResultObj->SetNumberField(TEXT("total_count"), ItemsArray->Num());
+
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleBatchSetAssetsProperties(const TSharedPtr<FJsonObject>& Params)
+{
+    const TArray<TSharedPtr<FJsonValue>>* ItemsArray;
+    if (!Params->TryGetArrayField(TEXT("items"), ItemsArray))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'items' parameter"));
+    }
+
+    TArray<TSharedPtr<FJsonValue>> Results;
+    int32 SuccessCount = 0;
+    int32 FailCount = 0;
+
+    for (int32 i = 0; i < ItemsArray->Num(); ++i)
+    {
+        const TSharedPtr<FJsonObject>* ItemObj;
+        if (!(*ItemsArray)[i]->TryGetObject(ItemObj))
+        {
+            TSharedPtr<FJsonObject> ErrorResult = MakeShared<FJsonObject>();
+            ErrorResult->SetBoolField(TEXT("success"), false);
+            ErrorResult->SetStringField(TEXT("error"), TEXT("Invalid item format"));
+            Results.Add(MakeShared<FJsonValueObject>(ErrorResult));
+            FailCount++;
+            continue;
+        }
+
+        TSharedPtr<FJsonObject> Result = HandleSetAssetProperties(*ItemObj);
+        Results.Add(MakeShared<FJsonValueObject>(Result));
+
+        if (Result->GetBoolField(TEXT("success")))
+        {
+            SuccessCount++;
+        }
+        else
+        {
+            FailCount++;
+        }
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), true);
+    ResultObj->SetArrayField(TEXT("results"), Results);
+    ResultObj->SetNumberField(TEXT("success_count"), SuccessCount);
+    ResultObj->SetNumberField(TEXT("fail_count"), FailCount);
+    ResultObj->SetNumberField(TEXT("total_count"), ItemsArray->Num());
 
     return ResultObj;
 }

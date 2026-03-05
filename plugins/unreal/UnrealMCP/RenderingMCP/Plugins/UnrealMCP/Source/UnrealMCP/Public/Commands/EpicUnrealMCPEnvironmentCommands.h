@@ -49,6 +49,19 @@ public:
     static TSharedPtr<FJsonObject> HandleGetActorProperties(const TSharedPtr<FJsonObject>& Params);
     
     // ============================================================================
+    // Batch Actor Management (批量操作)
+    // ============================================================================
+    
+    /** Batch spawn multiple actors */
+    static TSharedPtr<FJsonObject> HandleBatchSpawnActors(const TSharedPtr<FJsonObject>& Params);
+    
+    /** Batch delete multiple actors */
+    static TSharedPtr<FJsonObject> HandleBatchDeleteActors(const TSharedPtr<FJsonObject>& Params);
+    
+    /** Batch set properties on multiple actors */
+    static TSharedPtr<FJsonObject> HandleBatchSetActorsProperties(const TSharedPtr<FJsonObject>& Params);
+    
+    // ============================================================================
     // Reflection-based Property Helpers
     // ============================================================================
     

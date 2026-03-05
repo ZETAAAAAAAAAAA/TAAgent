@@ -1698,6 +1698,245 @@ def get_actor_properties(
 
 
 # ============================================================================
+# Batch Actor Management Tools (批量操作)
+# ============================================================================
+
+@mcp.tool()
+def batch_spawn_actors(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Batch spawn multiple actors. 批量创建多个 Actor。
+    
+    Args:
+        items: List of actor configurations, each containing:
+            - actor_class: Actor class name (required)
+            - name: Optional actor name
+            - location: Optional {"x": float, "y": float, "z": float}
+            - rotation: Optional {"pitch": float, "yaw": float, "roll": float}
+            - scale: Optional {"x": float, "y": float, "z": float}
+            - properties: Optional dict of properties to set
+    
+    Returns:
+        Dictionary with results list and summary (success_count, fail_count)
+    
+    Example:
+        batch_spawn_actors([
+            {"actor_class": "DirectionalLight", "name": "KeyLight", "properties": {"intensity": 10}},
+            {"actor_class": "Sphere", "name": "Ball1", "location": {"x": 0, "y": 0, "z": 100}},
+            {"actor_class": "Sphere", "name": "Ball2", "location": {"x": 200, "y": 0, "z": 100}}
+        ])
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"items": items}
+        response = unreal.send_command("batch_spawn_actors", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"batch_spawn_actors error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def batch_delete_actors(names: List[str]) -> Dict[str, Any]:
+    """
+    Batch delete multiple actors by name. 批量删除多个 Actor。
+    
+    Args:
+        names: List of actor names to delete
+    
+    Returns:
+        Dictionary with deleted list, failed list, and counts
+    
+    Example:
+        batch_delete_actors(["Light1", "Light2", "Ball1"])
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"names": names}
+        response = unreal.send_command("batch_delete_actors", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"batch_delete_actors error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def batch_set_actors_properties(actors: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Batch set properties on multiple actors. 批量修改多个 Actor 的属性。
+    
+    Args:
+        actors: List of actor configurations, each containing:
+            - name: Actor name (required)
+            - properties: Dict of properties to set (required)
+    
+    Returns:
+        Dictionary with results for each actor and summary
+    
+    Example:
+        batch_set_actors_properties([
+            {"name": "KeyLight", "properties": {"intensity": 15.0, "light_color": [1.0, 0.9, 0.8]}},
+            {"name": "FillLight", "properties": {"intensity": 8.0}},
+            {"name": "MaterialBall", "properties": {"location": {"x": 100, "y": 0, "z": 50}}}
+        ])
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"actors": actors}
+        response = unreal.send_command("batch_set_actors_properties", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"batch_set_actors_properties error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+# ============================================================================
+# Generic Asset Management Tools (通用资产操作 - Refactored)
+# ============================================================================
+
+@mcp.tool()
+def create_asset(
+    asset_type: str,
+    name: str,
+    path: str = "/Game/",
+    properties: dict = None
+) -> Dict[str, Any]:
+    """
+    Create any asset by type. Uses UE reflection for universal asset creation.
+    通过类型名称创建任何类型的资产。
+    
+    Args:
+        asset_type: Asset type name (e.g., "Material", "MaterialInstance", "MaterialFunction", "Texture")
+        name: Name for the new asset
+        path: Destination path (default: /Game/)
+        properties: Type-specific properties (e.g., {"parent_material": "/Game/M/M_Base"} for MaterialInstance)
+    
+    Returns:
+        Dictionary with asset name, path, and creation status
+    
+    Examples:
+        create_asset(asset_type="Material", name="M_Red", path="/Game/Materials/")
+        create_asset(asset_type="MaterialInstance", name="MI_Red", properties={"parent_material": "/Game/M/M_Base"})
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"asset_type": asset_type, "name": name, "path": path}
+        if properties:
+            params["properties"] = properties
+        response = unreal.send_command("create_asset", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"create_asset error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def delete_asset(asset_path: str) -> Dict[str, Any]:
+    """
+    Delete an asset by path. 删除指定路径的资产。
+    
+    Args:
+        asset_path: Full asset path (e.g., "/Game/Materials/M_Red.M_Red")
+    
+    Returns:
+        Dictionary with success status
+    """
+    unreal = get_unreal_connection()
+    try:
+        response = unreal.send_command("delete_asset", {"asset_path": asset_path})
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"delete_asset error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def set_asset_properties(asset_path: str, properties: dict) -> Dict[str, Any]:
+    """
+    Set properties on any asset using UE reflection.
+    通过反射设置任何资产的属性。
+    
+    Args:
+        asset_path: Full asset path (e.g., "/Game/Materials/M_Red.M_Red")
+        properties: Dictionary of property names and values
+    
+    Returns:
+        Dictionary with success status and modified properties
+    """
+    unreal = get_unreal_connection()
+    try:
+        response = unreal.send_command("set_asset_properties", {"asset_path": asset_path, "properties": properties})
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"set_asset_properties error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def get_asset_properties(asset_path: str, properties: list = None) -> Dict[str, Any]:
+    """
+    Get properties of any asset using UE reflection.
+    通过反射获取任何资产的属性。
+    
+    Args:
+        asset_path: Full asset path
+        properties: Optional list of specific property names to get
+    
+    Returns:
+        Dictionary with asset properties
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"asset_path": asset_path}
+        if properties:
+            params["properties"] = properties
+        response = unreal.send_command("get_asset_properties", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"get_asset_properties error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def batch_create_assets(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Batch create multiple assets. 批量创建多个资产。
+    
+    Args:
+        items: List of asset configurations
+    
+    Returns:
+        Dictionary with results list and summary
+    """
+    unreal = get_unreal_connection()
+    try:
+        response = unreal.send_command("batch_create_assets", {"items": items})
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"batch_create_assets error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def batch_set_assets_properties(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Batch set properties on multiple assets. 批量设置多个资产的属性。
+    
+    Args:
+        items: List of asset configurations with asset_path and properties
+    
+    Returns:
+        Dictionary with results for each asset and summary
+    """
+    unreal = get_unreal_connection()
+    try:
+        response = unreal.send_command("batch_set_assets_properties", {"items": items})
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"batch_set_assets_properties error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+# ============================================================================
 # Main Entry Point
 # ============================================================================
 

@@ -8,11 +8,13 @@ Rendering MCP is a comprehensive toolkit that enables AI agents to analyze Rende
 
 ### Key Features
 
-- **Mesh Export**: Extract meshes from draw calls to FBX format
+- **Mesh Export**: Extract meshes from draw calls to FBX format (GPU-driven rendering support)
 - **Material Reconstruction**: Analyze shaders and reconstruct UE materials
+- **Material Analysis**: Read existing UE material graphs and connections
 - **Texture Extraction**: Export and identify texture types automatically
 - **DXBC Analysis**: AI-powered shader bytecode understanding
-- **UE Integration**: Direct material and asset creation in Unreal Engine
+- **UE Integration**: Direct material/asset creation, lighting, and viewport capture
+- **Lookdev Tools**: Screenshot capture and light management for asset validation
 
 ---
 
@@ -30,13 +32,14 @@ Rendering MCP is a comprehensive toolkit that enables AI agents to analyze Rende
     │     (Capture Analysis)    │    │    (Asset Creation)       │
     ├───────────────────────────┤    ├───────────────────────────┤
     │ • Capture management      │    │ • Material management     │
-    │ • Draw call analysis      │    │ • Material node creation  │
-    │ • Shader analysis (DXBC)  │    │ • Texture import          │
-    │ • Texture extraction      │    │ • FBX mesh import         │
-    │ • Mesh export (FBX)       │    │ • Material functions      │
-    │ • Buffer data access      │    │                           │
+    │ • Draw call analysis      │    │ • Material node graphs    │
+    │ • Shader analysis (DXBC)  │    │ • Material function analysis
+    │ • Texture extraction      │    │ • Texture import          │
+    │ • Mesh export (FBX)       │    │ • FBX mesh import         │
+    │ • Buffer data access      │    │ • Lighting control        │
+    │ • Pipeline state          │    │ • Viewport capture        │
     │                           │    │                           │
-    │ 19 tools                  │    │ 15 tools                  │
+    │ 20 tools                  │    │ 22 tools                  │
     └───────────────────────────┘    └───────────────────────────┘
 ```
 
@@ -177,14 +180,15 @@ Skills are domain-specific guides that help AI agents work effectively with this
 | **project-setup** | Installation, build, and maintenance guides |
 | **renderdoc-fbx-export** | Mesh export from captures to FBX format |
 | **renderdoc-material-reconstruction** | Shader analysis and material reconstruction |
-| **ue-development** | UE material creation and development workflows |
+| **ue-development** | UE material creation, analysis, and development workflows |
+| **lookdev** | Asset review environment setup and validation |
 | **shadertoy-conversion** | Convert Shadertoy shaders to UE materials |
 
 ---
 
 ## Tools Reference
 
-### RenderDoc MCP (19 Tools)
+### RenderDoc MCP (20 Tools)
 
 | Category | Tools |
 |----------|-------|
@@ -194,14 +198,17 @@ Skills are domain-specific guides that help AI agents work effectively with this
 | **Texture** | `get_texture_info`, `get_texture_data`, `save_texture` |
 | **Mesh/Buffer** | `get_mesh_data`, `export_mesh_as_fbx`, `get_buffer_contents`, `export_mesh_csv` |
 
-### Unreal Render MCP (15 Tools)
+### Unreal Render MCP (22 Tools)
 
 | Category | Tools |
 |----------|-------|
-| **Material** | `create_material`, `create_material_instance`, `create_material_function`, `set_material_instance_parameter`, `set_material_properties`, `compile_material`, `get_material_expressions`, `get_material_functions`, `get_material_function_content`, `get_available_materials` |
+| **Material** | `create_material`, `create_material_instance`, `create_material_function`, `set_material_instance_parameter`, `set_material_properties`, `compile_material` |
+| **Material Analysis** | `get_material_expressions`, `get_material_connections`, `get_material_functions`, `get_material_function_content`, `get_available_materials`, `get_material_properties` |
 | **Material Nodes** | `add_material_expression`, `connect_material_nodes` |
 | **Texture** | `import_texture`, `set_texture_properties` |
 | **Mesh** | `import_fbx`, `create_static_mesh_from_data` |
+| **Lights** | `create_light`, `set_light_properties`, `get_lights`, `delete_light` |
+| **Viewport** | `get_viewport_screenshot` |
 
 ---
 
@@ -285,17 +292,59 @@ connect_material_nodes(
 )
 ```
 
+### Example 3: Material Analysis
+
+```python
+# Analyze existing material structure
+get_material_properties(material_name="/Game/Materials/M_Water")
+get_material_expressions(material_name="/Game/Materials/M_Water")
+get_material_connections(material_name="/Game/Materials/M_Water")
+
+# Analyze Material Function with internal connections
+get_material_function_content(
+    function_path="/Engine/Functions/Engine_MaterialFunctions01/Texturing/BitMask.BitMask"
+)
+# Returns: inputs, outputs, expressions, and connections between internal nodes
+```
+
+### Example 4: Lookdev Environment
+
+```python
+# Create lighting for asset validation
+create_light(
+    light_type="directional",
+    name="KeyLight",
+    intensity=10.0,
+    color=[1.0, 1.0, 1.0],
+    rotation=[-45, 0, 0]
+)
+
+# Capture viewport screenshot for review
+get_viewport_screenshot(
+    output_path="C:/renders/asset_review.png",
+    format="png"
+)
+
+# List and manage lights
+get_lights(light_type="directional")
+set_light_properties(name="KeyLight", intensity=5.0)
+```
+
 ---
 
 ## Documentation
 
 Comprehensive documentation is available in `docs/skills/`:
 
-- **FBX Export Workflow**: `docs/skills/renderdoc-fbx-export/workflow.md`
-- **Material Reconstruction**: `docs/skills/renderdoc-material-reconstruction/workflow.md`
-- **DXBC Analysis Guide**: `docs/skills/renderdoc-material-reconstruction/dxbc-analysis.md`
-- **UE Tools Reference**: `docs/skills/ue-development/tools-reference.md`
-- **Update & Build Guide**: `docs/skills/project-setup/update-and-build.md`
+| Document | Description |
+|----------|-------------|
+| **FBX Export Workflow** | `docs/skills/renderdoc-fbx-export/workflow.md` |
+| **Material Reconstruction** | `docs/skills/renderdoc-material-reconstruction/workflow.md` |
+| **DXBC Analysis Guide** | `docs/skills/renderdoc-material-reconstruction/dxbc-analysis.md` |
+| **UE Tools Reference** | `docs/skills/ue-development/tools-reference.md` - Complete tool documentation |
+| **Material Analysis** | `docs/skills/ue-development/material-analysis.md` - Reading UE materials |
+| **Lookdev Guide** | `docs/skills/lookdev/skill.md` - Asset validation environment setup |
+| **Update & Build Guide** | `docs/skills/project-setup/update-and-build.md` |
 
 ---
 
@@ -330,6 +379,9 @@ Comprehensive documentation is available in `docs/skills/`:
 | UE plugin not working | Rebuild plugin for your UE version |
 | Import errors | Reinstall: `pip install -e .` |
 | FBX normals inverted | Set `flip_winding_order=True` |
+| UE 5.7 compile errors | Use `TSharedPtr<SLevelViewport>` not `TSharedPtr<IAssetViewport>` |
+| GPU-driven mesh export | Use `buffer_config` parameter with GPU buffer offsets |
+| Material function connections not showing | Ensure UE plugin is updated to latest version |
 
 ---
 

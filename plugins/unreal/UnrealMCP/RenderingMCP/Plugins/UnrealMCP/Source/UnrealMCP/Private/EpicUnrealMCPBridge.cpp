@@ -54,6 +54,7 @@
 #include "Commands/EpicUnrealMCPEditorCommands.h"
 #include "Commands/EpicUnrealMCPBlueprintCommands.h"
 #include "Commands/EpicUnrealMCPBlueprintGraphCommands.h"
+#include "Commands/EpicUnrealMCPEnvironmentCommands.h"
 #include "Commands/EpicUnrealMCPCommonUtils.h"
 
 // Default settings

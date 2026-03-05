@@ -219,49 +219,6 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleCommand(const F
     return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown environment command: %s"), *CommandType));
 }
 
-// Viewport screenshot
-TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleGetViewportScreenshot(const TSharedPtr<FJsonObject>& Params)
-{
-    if (CommandType == TEXT("get_viewport_screenshot"))
-    {
-        return HandleGetViewportScreenshot(Params);
-    }
-    else if (CommandType == TEXT("create_light"))
-    {
-        return HandleCreateLight(Params);
-    }
-    else if (CommandType == TEXT("set_light_properties"))
-    {
-        return HandleSetLightProperties(Params);
-    }
-    else if (CommandType == TEXT("get_lights"))
-    {
-        return HandleGetLights(Params);
-    }
-    else if (CommandType == TEXT("delete_light"))
-    {
-        return HandleDeleteLight(Params);
-    }
-    else if (CommandType == TEXT("create_post_process_volume"))
-    {
-        return HandleCreatePostProcessVolume(Params);
-    }
-    else if (CommandType == TEXT("set_post_process_settings"))
-    {
-        return HandleSetPostProcessSettings(Params);
-    }
-    else if (CommandType == TEXT("spawn_basic_actor"))
-    {
-        return HandleSpawnBasicActor(Params);
-    }
-    else if (CommandType == TEXT("set_actor_material"))
-    {
-        return HandleSetActorMaterial(Params);
-    }
-    
-    return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown environment command: %s"), *CommandType));
-}
-
 // Light management - TODO: Migrate from main file
 TSharedPtr<FJsonObject> FEpicUnrealMCPEnvironmentCommands::HandleCreateLight(const TSharedPtr<FJsonObject>& Params)
 {

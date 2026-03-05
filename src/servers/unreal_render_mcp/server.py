@@ -1441,6 +1441,263 @@ def set_actor_material(
 
 
 # ============================================================================
+# Generic Actor Management Tools (Refactored - 5 Core Tools)
+# ============================================================================
+
+@mcp.tool()
+def spawn_actor(
+    actor_class: str,
+    name: str = None,
+    location: dict = None,
+    rotation: dict = None,
+    scale: dict = None,
+    properties: dict = None
+) -> Dict[str, Any]:
+    """
+    Spawn any actor by class name. Uses UE reflection for universal actor creation.
+    
+    This is the new generic actor spawning tool that replaces spawn_basic_actor and create_light.
+    Supports any actor type without code changes through UE's reflection system.
+    
+    Args:
+        actor_class: Actor class name (e.g., "DirectionalLight", "PointLight", "Sphere", "StaticMeshActor", "PostProcessVolume")
+                     Common types: DirectionalLight, PointLight, SpotLight, RectLight, 
+                     StaticMeshActor, Sphere, Cube, Plane, Cylinder, PostProcessVolume
+        name: Optional actor name
+        location: Optional {"x": float, "y": float, "z": float}
+        rotation: Optional {"pitch": float, "yaw": float, "roll": float}
+        scale: Optional {"x": float, "y": float, "z": float}
+        properties: Optional dict of properties to set (e.g., {"intensity": 10.0, "cast_shadows": True})
+                   Property names match UE UPROPERTY names. Unmatched properties are ignored.
+    
+    Returns:
+        Dictionary with success status, actor name, class, path, and transform
+    
+    Examples:
+        # Create a directional light
+        spawn_actor(
+            actor_class="DirectionalLight",
+            name="KeyLight",
+            rotation={"pitch": -45, "yaw": 30, "roll": 0},
+            properties={"intensity": 10.0, "cast_shadows": True}
+        )
+        
+        # Create a material ball (sphere)
+        spawn_actor(
+            actor_class="Sphere",
+            name="MaterialBall",
+            location={"x": 0, "y": 0, "z": 100}
+        )
+        
+        # Create a gray card (plane)
+        spawn_actor(
+            actor_class="Plane",
+            name="GrayCard",
+            location={"x": 200, "y": 0, "z": 0},
+            scale={"x": 2, "y": 2, "z": 1}
+        )
+        
+        # Create Post Process Volume for lookdev
+        spawn_actor(
+            actor_class="PostProcessVolume",
+            name="Lookdev_PP",
+            scale={"x": 2000, "y": 2000, "z": 2000}
+        )
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"actor_class": actor_class}
+        if name:
+            params["name"] = name
+        if location:
+            params["location"] = location
+        if rotation:
+            params["rotation"] = rotation
+        if scale:
+            params["scale"] = scale
+        if properties:
+            params["properties"] = properties
+        response = unreal.send_command("spawn_actor", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"spawn_actor error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def delete_actor(name: str) -> Dict[str, Any]:
+    """
+    Delete an actor by name.
+    
+    Args:
+        name: Name of the actor to delete
+    
+    Returns:
+        Dictionary with success status and deleted actor name
+    
+    Example:
+        delete_actor(name="KeyLight")
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"name": name}
+        response = unreal.send_command("delete_actor", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"delete_actor error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def get_actors(
+    actor_class: str = None,
+    detailed: bool = False
+) -> Dict[str, Any]:
+    """
+    Get list of actors in the level with optional filtering.
+    
+    Args:
+        actor_class: Optional class filter (e.g., "Light", "StaticMesh", "DirectionalLight")
+        detailed: If True, includes all editable properties for each actor
+    
+    Returns:
+        Dictionary with actor count and list of actors
+    
+    Examples:
+        # Get all actors
+        get_actors()
+        
+        # Get only lights
+        get_actors(actor_class="Light")
+        
+        # Get detailed info for all static meshes
+        get_actors(actor_class="StaticMesh", detailed=True)
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"detailed": detailed}
+        if actor_class:
+            params["actor_class"] = actor_class
+        response = unreal.send_command("get_actors", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"get_actors error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def set_actor_properties(
+    name: str,
+    properties: dict
+) -> Dict[str, Any]:
+    """
+    Set properties on an actor using UE reflection.
+    
+    This is the new generic property setting tool. It uses UE's reflection system
+    to match property names at runtime. Properties that match are modified,
+    properties that don't match are ignored (no error).
+    
+    Args:
+        name: Actor name
+        properties: Dictionary of property names and values
+                   Property names should match UE UPROPERTY names (case-insensitive)
+                   
+                   Common Light properties:
+                   - "intensity": float
+                   - "light_color": [R, G, B, A] or {"r": R, "g": G, "b": B, "a": A}
+                   - "temperature": float (K)
+                   - "cast_shadows": bool
+                   - "attenuation_radius": float (Point/Spot lights)
+                   - "outer_cone_angle": float (Spot lights)
+                   
+                   Transform shortcuts (directly on actor):
+                   - "location": {"x": X, "y": Y, "z": Z} or [X, Y, Z]
+                   - "rotation": {"pitch": P, "yaw": Y, "roll": R} or [P, Y, R]
+                   - "scale": {"x": X, "y": Y, "z": Z} or [X, Y, Z]
+    
+    Returns:
+        Dictionary with success status, modified count, and lists of modified/failed properties
+    
+    Examples:
+        # Modify light intensity and color
+        set_actor_properties(
+            name="KeyLight",
+            properties={
+                "intensity": 15.0,
+                "light_color": [1.0, 0.9, 0.8, 1.0],
+                "temperature": 6500
+            }
+        )
+        
+        # Move actor to new location
+        set_actor_properties(
+            name="MaterialBall",
+            properties={
+                "location": {"x": 100, "y": 0, "z": 50}
+            }
+        )
+        
+        # Multiple unmatched properties (ignored silently)
+        set_actor_properties(
+            name="KeyLight",
+            properties={
+                "intensity": 10.0,     # Matches - will be set
+                "foo_bar": 123         # No match - ignored
+            }
+        )
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {
+            "name": name,
+            "properties": properties
+        }
+        response = unreal.send_command("set_actor_properties", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"set_actor_properties error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def get_actor_properties(
+    name: str,
+    properties: list = None
+) -> Dict[str, Any]:
+    """
+    Get properties of an actor using UE reflection.
+    
+    Args:
+        name: Actor name
+        properties: Optional list of specific property names to get.
+                   If not provided, returns all editable UPROPERTIES.
+    
+    Returns:
+        Dictionary with actor name, class, transform, and properties
+    
+    Examples:
+        # Get all properties
+        get_actor_properties(name="KeyLight")
+        
+        # Get specific properties only
+        get_actor_properties(
+            name="KeyLight",
+            properties=["intensity", "light_color", "cast_shadows"]
+        )
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"name": name}
+        if properties:
+            params["properties"] = properties
+        response = unreal.send_command("get_actor_properties", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"get_actor_properties error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+# ============================================================================
 # Main Entry Point
 # ============================================================================
 

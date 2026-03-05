@@ -91,160 +91,214 @@ Post Process Volume:
 
 ## UE MCP 工具使用
 
-### 创建 Lookdev 环境
+> **架构升级**: 现在使用 **5 个通用反射工具** 管理所有 Actor，无需为每种类型写硬编码。
+> - 新增 Actor 类型只需更新本文档，**零代码修改**
+> - 属性匹配采用"匹配即修改，不匹配即忽略"策略
+
+### 通用 Actor 管理工具（5个核心）
 
 ```python
-# 1. 创建测光灰板
-create_static_mesh_from_data(
-    name="GrayCard",
-    positions=[[100,0,0], [0,0,0], [0,100,0], [100,100,0]],
-    indices=[0,1,2, 0,2,3],
-    normals=[[0,0,1]] * 4
+# 1. 创建任意 Actor
+spawn_actor(
+    actor_class="DirectionalLight",  # 类名（自动匹配A/U前缀）
+    name="KeyLight",                 # 可选：指定名称
+    location={"x": 0, "y": 0, "z": 0},
+    rotation={"pitch": -45, "yaw": 30, "roll": 0},
+    scale={"x": 1, "y": 1, "z": 1},
+    properties={                     # 可选：初始化属性
+        "intensity": 10.0,
+        "light_color": [1.0, 1.0, 1.0, 1.0],
+        "bCastShadows": True
+    }
 )
 
-# 2. 创建灰板材质
-create_material(name="M_GrayCard")
-set_material_properties(
-    material_name="M_GrayCard",
-    shading_model="DefaultLit"
-)
-# 添加参数节点并连接...
-
-# 3. 创建三种光比环境
-
-# 低反差环境 (1.65x)
-create_light(
-    light_type="directional",
-    name="KeyLight_Low",
-    intensity=5.0,
-    color=[1.0, 1.0, 1.0],
-    rotation=[-45, 0, 0]
+# 2. 修改 Actor 属性（反射自动匹配）
+set_actor_properties(
+    name="KeyLight",
+    properties={
+        # 匹配即修改，不匹配则忽略
+        "intensity": 15.0,           # 匹配 LightComponent.intensity
+        "temperature": 6500,         # 匹配 LightComponent.temperature  
+        "foo_bar": 123               # 不匹配任何属性，自动忽略
+    }
 )
 
-# 中反差环境 (2.6x)
-create_light(
-    light_type="directional",
-    name="KeyLight_Mid",
-    intensity=8.0,
-    color=[1.0, 1.0, 1.0],
-    rotation=[-45, 0, 0]
-)
+# 3. 获取 Actor 属性
+props = get_actor_properties(name="KeyLight")
+# 返回: {name, class, location, rotation, scale, properties: {...}}
 
-# 高反差环境 (16x)
-create_light(
-    light_type="directional",
-    name="KeyLight_High",
-    intensity=16.0,
-    color=[1.0, 1.0, 1.0],
-    rotation=[-45, 0, 0]
-)
+# 4. 列出 Actor（支持类过滤）
+actors = get_actors()                           # 所有 Actor
+actors = get_actors(actor_class="Light")        # 仅灯光
+actors = get_actors(actor_class="StaticMesh")   # 仅静态网格
+actors = get_actors(detailed=True)              # 包含完整属性
+
+# 5. 删除 Actor
+delete_actor(name="KeyLight")
 ```
 
-### 灯光管理工具
+### Actor 类型配置表
+
+| Actor 类名 | 说明 | 常用属性 |
+|-----------|------|---------|
+| `DirectionalLight` | 平行光（主光源） | `intensity`, `light_color`, `temperature`, `bCastShadows`, `source_radius` |
+| `PointLight` | 点光源 | `intensity`, `light_color`, `attenuation_radius`, `source_radius` |
+| `SpotLight` | 聚光灯 | `intensity`, `inner_cone_angle`, `outer_cone_angle` |
+| `RectLight` | 矩形光源 | `intensity`, `source_width`, `source_height` |
+| `StaticMeshActor` | 静态网格 | `static_mesh` (路径), `material` (材质路径) |
+| `Sphere` | 材质球（自动加载Sphere网格） | 同 StaticMeshActor |
+| `Cube` / `Box` | 立方体 | 同 StaticMeshActor |
+| `Plane` | 平面（灰板） | 同 StaticMeshActor |
+| `Cylinder` | 圆柱体 | 同 StaticMeshActor |
+| `PostProcessVolume` | 后处理体积（自动unbound） | `bEnabled`, 详见下方配置 |
+
+### 完整 Lookdev 环境搭建流程
 
 ```python
-# 获取场景中的所有灯光
-lights = get_lights()
-lights = get_lights(light_type="directional")  # 按类型过滤
-
-# 修改灯光属性
-set_light_properties(
-    name="KeyLight_Low",
-    intensity=10.0,
-    color=[1.0, 0.9, 0.8],
-    temperature=6500,
-    use_temperature=True
-)
-
-# 删除灯光
-delete_light(name="KeyLight_Low")
-```
-
-### 完整的 Lookdev 环境搭建流程
-
-```python
-# 1. 创建 Post Process Volume（关键！设置曝光基准）
-create_post_process_volume(
+# Step 1: 创建 Post Process Volume（曝光基准）
+spawn_actor(
+    actor_class="PostProcessVolume",
     name="Lookdev_PP",
     location={"x": 0, "y": 0, "z": 0},
-    scale={"x": 2000, "y": 2000, "z": 2000}
+    scale={"x": 2000, "y": 2000, "z": 2000},
+    properties={
+        "bEnabled": True,
+        "bUnbound": True  # 影响整个场景
+    }
 )
 
-# 2. 确认曝光设置（EV100=0）
-set_post_process_settings(
-    name="Lookdev_PP",
-    exposure_mode="manual",
-    exposure_value=0,
-    bloom_enabled=False,
-    vignette_enabled=False,
-    ao_enabled=False,
-    unbound=True
-)
+# Step 2: 设置曝光参数（EV100=0）
+# 注意：PPV 的详细设置需要通过 Actor 属性访问，或者手动在编辑器设置
 
-# 3. 创建材质球（Sphere）
-spawn_basic_actor(
-    actor_type="Sphere",
+# Step 3: 创建材质球
+spawn_actor(
+    actor_class="Sphere",
     name="MaterialBall",
     location={"x": 0, "y": 0, "z": 100},
     scale={"x": 1, "y": 1, "z": 1}
 )
 
-# 4. 创建灰板（Plane）
-spawn_basic_actor(
-    actor_type="Plane",
+# Step 4: 创建灰板（Linear 0.18 测光用）
+spawn_actor(
+    actor_class="Plane",
     name="GrayCard",
     location={"x": 200, "y": 0, "z": 0},
     rotation={"pitch": 0, "yaw": 0, "roll": 0},
     scale={"x": 2, "y": 2, "z": 1}
 )
 
-# 5. 创建灰板材质（Linear 0.18）
-create_material(name="M_GrayCard_018")
-set_material_properties(
-    material_name="M_GrayCard_018",
-    shading_model="DefaultLit"
-)
-# 注：需要通过 add_material_expression 和 connect_material_nodes 设置 BaseColor=0.18
-
-# 6. 应用材质
-set_actor_material(
-    actor_name="GrayCard",
-    material_path="/Game/Materials/M_GrayCard_018"
-)
-
-# 7. 创建主光源（Directional Light）
-create_light(
-    light_type="directional",
-    name="KeyLight",
-    intensity=10.0,
-    color=[1.0, 1.0, 1.0],
+# Step 5: 创建三种光比环境的主光源
+# 低反差 1.65x
+spawn_actor(
+    actor_class="DirectionalLight",
+    name="KeyLight_Low",
     rotation={"pitch": -45, "yaw": 30, "roll": 0},
-    cast_shadows=True
+    properties={"intensity": 3.0, "bCastShadows": True}
 )
 
-# 8. 捕获截图用于验证
+# 中反差 2.6x  
+spawn_actor(
+    actor_class="DirectionalLight",
+    name="KeyLight_Mid",
+    rotation={"pitch": -45, "yaw": 30, "roll": 0},
+    properties={"intensity": 5.0, "bCastShadows": True}
+)
+
+# 高反差 16x
+spawn_actor(
+    actor_class="DirectionalLight",
+    name="KeyLight_High",
+    rotation={"pitch": -45, "yaw": 30, "roll": 0},
+    properties={"intensity": 16.0, "bCastShadows": True}
+)
+
+# Step 6: 验证截图
 get_viewport_screenshot(
     output_path="C:/Lookdev/verification.png",
     format="png"
 )
 
-# 9. 使用 Pixel Inspector 检查灰板亮度应为 0.18（Final Color）
+# Step 7: 使用 Pixel Inspector 检查灰板亮度应为 0.18（Final Color）
+```
+
+### 属性设置说明
+
+反射系统会自动搜索 Actor 及其 Component 的属性：
+
+```python
+# 灯光属性示例
+set_actor_properties(
+    name="MyLight",
+    properties={
+        # 这些属性在 LightComponent 上
+        "intensity": 10.0,              # float
+        "light_color": [1, 0.9, 0.8, 1], # LinearColor [R,G,B,A]
+        "temperature": 6500,            # float
+        "bCastShadows": True,           # bool
+        "attenuation_radius": 1000,     # float (PointLight/SpotLight)
+        "outer_cone_angle": 45.0,       # float (SpotLight)
+    }
+)
+
+# 静态网格属性示例
+set_actor_properties(
+    name="MyMesh",
+    properties={
+        "static_mesh": "/Engine/BasicShapes/Sphere",  # 网格路径
+        # "material" 属性暂不支持动态设置，需使用材质工具
+    }
+)
+
+# Transform 快捷属性（直接作用于 Actor）
+set_actor_properties(
+    name="AnyActor",
+    properties={
+        "location": {"x": 100, "y": 0, "z": 50},
+        # 或使用数组: "location": [100, 0, 50]
+        "rotation": {"pitch": 0, "yaw": 90, "roll": 0},
+        "scale": {"x": 2, "y": 2, "z": 2}
+    }
+)
 ```
 
 ### 获取视口截图验证
 
 ```python
 # 捕获当前视口
-result = get_viewport_screenshot(output_path="C:/temp/lookdev_verify.png", format="png", quality=95)
-# 截图保存到指定路径用于对比验证
+result = get_viewport_screenshot(
+    output_path="C:/temp/lookdev_verify.png",
+    format="png",      # png, jpg, bmp
+    quality=95         # JPEG 质量 (1-100)
+)
 ```
 
 ### 测光验证
 
 ```python
-# 使用 Pixel Inspector（需手动操作）
-# 吸取灰板区域，检查 Final Color 是否为 0.18
+# 获取灰板属性检查
+props = get_actor_properties(name="GrayCard")
+print(props["location"])  # 确认位置
+
+# 使用 Pixel Inspector（手动操作）
+# 1. 在 UE 编辑器中打开 Window > Developer Tools > Pixel Inspector
+# 2. 吸取灰板区域
+# 3. 检查 Final Color 应接近 0.18
 ```
+
+### 遗留工具（已弃用）
+
+以下工具仍可工作，但建议迁移到通用工具：
+
+| 旧工具 | 替代方案 |
+|-------|---------|
+| `create_light` | `spawn_actor(actor_class="DirectionalLight")` |
+| `set_light_properties` | `set_actor_properties` |
+| `get_lights` | `get_actors(actor_class="Light")` |
+| `delete_light` | `delete_actor` |
+| `create_post_process_volume` | `spawn_actor(actor_class="PostProcessVolume")` |
+| `set_post_process_settings` | `set_actor_properties` |
+| `spawn_basic_actor` | `spawn_actor` |
+| `set_actor_material` | `set_actor_properties` |
 
 ## DCC 同步
 

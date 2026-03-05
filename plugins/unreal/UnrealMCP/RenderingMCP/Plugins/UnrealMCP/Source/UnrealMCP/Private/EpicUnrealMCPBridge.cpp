@@ -223,8 +223,6 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
             // Editor Commands (including actor manipulation)
             else if (CommandType == TEXT("get_actors_in_level") || 
                      CommandType == TEXT("find_actors_by_name") ||
-                     CommandType == TEXT("spawn_actor") ||
-                     CommandType == TEXT("delete_actor") || 
                      CommandType == TEXT("set_actor_transform") ||
                      CommandType == TEXT("spawn_blueprint_actor") ||
                      CommandType == TEXT("import_fbx") ||
@@ -266,8 +264,15 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
             {
                 ResultJson = BlueprintCommands->HandleCommand(CommandType, Params);
             }
-            // Environment Commands
+            // Environment Commands (Generic Actor Management - 5 Core Tools)
             else if (CommandType == TEXT("get_viewport_screenshot") ||
+                     // New generic actor tools (refactored with reflection)
+                     CommandType == TEXT("spawn_actor") ||
+                     CommandType == TEXT("delete_actor") ||
+                     CommandType == TEXT("get_actors") ||
+                     CommandType == TEXT("set_actor_properties") ||
+                     CommandType == TEXT("get_actor_properties") ||
+                     // Legacy compatibility (deprecated)
                      CommandType == TEXT("create_light") ||
                      CommandType == TEXT("set_light_properties") ||
                      CommandType == TEXT("get_lights") ||

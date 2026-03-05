@@ -251,11 +251,33 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPBlueprintCommands::HandleCommand(const FSt
     {
         return HandleGetBlueprintFunctionDetails(Params);
     }
-    // Viewport and Light commands - delegated to EnvironmentCommands
+    // Viewport and Actor commands - delegated to EnvironmentCommands
     else if (CommandType == TEXT("get_viewport_screenshot"))
     {
         return FEpicUnrealMCPEnvironmentCommands::HandleGetViewportScreenshot(Params);
     }
+    else if (CommandType == TEXT("spawn_actor"))
+    {
+        return FEpicUnrealMCPEnvironmentCommands::HandleSpawnActor(Params);
+    }
+    else if (CommandType == TEXT("delete_actor"))
+    {
+        return FEpicUnrealMCPEnvironmentCommands::HandleDeleteActor(Params);
+    }
+    else if (CommandType == TEXT("get_actors"))
+    {
+        return FEpicUnrealMCPEnvironmentCommands::HandleGetActors(Params);
+    }
+    else if (CommandType == TEXT("set_actor_properties"))
+    {
+        return FEpicUnrealMCPEnvironmentCommands::HandleSetActorProperties(Params);
+    }
+    else if (CommandType == TEXT("get_actor_properties"))
+    {
+        return FEpicUnrealMCPEnvironmentCommands::HandleGetActorProperties(Params);
+    }
+    // Legacy compatibility - these are deprecated but kept for backward compatibility
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
     else if (CommandType == TEXT("create_light"))
     {
         return FEpicUnrealMCPEnvironmentCommands::HandleCreateLight(Params);
@@ -288,6 +310,7 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPBlueprintCommands::HandleCommand(const FSt
     {
         return FEpicUnrealMCPEnvironmentCommands::HandleSetActorMaterial(Params);
     }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
     return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown blueprint command: %s"), *CommandType));
 }

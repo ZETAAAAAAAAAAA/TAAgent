@@ -19,8 +19,15 @@ private:
     // Actor manipulation commands
     TSharedPtr<FJsonObject> HandleGetActorsInLevel(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleFindActorsByName(const TSharedPtr<FJsonObject>& Params);
+    
+    // Deprecated: Use FEpicUnrealMCPEnvironmentCommands::HandleSpawnActor instead (reflection-based)
+    UE_DEPRECATED(5.0, "Use FEpicUnrealMCPEnvironmentCommands::HandleSpawnActor instead")
     TSharedPtr<FJsonObject> HandleSpawnActor(const TSharedPtr<FJsonObject>& Params);
+    
+    // Deprecated: Use FEpicUnrealMCPEnvironmentCommands::HandleDeleteActor instead
+    UE_DEPRECATED(5.0, "Use FEpicUnrealMCPEnvironmentCommands::HandleDeleteActor instead")
     TSharedPtr<FJsonObject> HandleDeleteActor(const TSharedPtr<FJsonObject>& Params);
+    
     TSharedPtr<FJsonObject> HandleSetActorTransform(const TSharedPtr<FJsonObject>& Params);
 
     // Blueprint actor spawning

@@ -198,7 +198,7 @@ Skills are domain-specific guides that help AI agents work effectively with this
 | **Texture** | `get_texture_info`, `get_texture_data`, `save_texture` |
 | **Mesh/Buffer** | `get_mesh_data`, `export_mesh_as_fbx`, `get_buffer_contents`, `export_mesh_csv` |
 
-### Unreal Render MCP (26 Tools)
+### Unreal Render MCP (23 Tools)
 
 | Category | Tools |
 |----------|-------|
@@ -207,10 +207,10 @@ Skills are domain-specific guides that help AI agents work effectively with this
 | **Material Nodes** | `add_material_expression`, `connect_material_nodes` |
 | **Texture** | `import_texture`, `set_texture_properties` |
 | **Mesh** | `import_fbx`, `create_static_mesh_from_data` |
-| **Lights** | `create_light`, `set_light_properties`, `get_lights`, `delete_light` |
-| **Post Process** | `create_post_process_volume`, `set_post_process_settings` |
-| **Actor Spawning** | `spawn_basic_actor`, `set_actor_material` |
+| **Actor Management** | `spawn_actor`, `delete_actor`, `get_actors`, `set_actor_properties`, `get_actor_properties` |
 | **Viewport** | `get_viewport_screenshot` |
+
+> **Refactored**: Actor tools now use UE Reflection System. Supports any Actor type without code changes. See [Lookdev Skill](docs/skills/lookdev/skill.md) for details.
 
 ---
 
@@ -309,28 +309,50 @@ get_material_function_content(
 # Returns: inputs, outputs, expressions, and connections between internal nodes
 ```
 
-### Example 4: Lookdev Environment
+### Example 4: Lookdev Environment (Refactored)
 
 ```python
-# Create lighting for asset validation
-create_light(
-    light_type="directional",
+# Generic actor spawning - supports any UE Actor class via reflection
+spawn_actor(
+    actor_class="DirectionalLight",
     name="KeyLight",
-    intensity=10.0,
-    color=[1.0, 1.0, 1.0],
-    rotation=[-45, 0, 0]
+    rotation={"pitch": -45, "yaw": 30, "roll": 0},
+    properties={
+        "intensity": 10.0,
+        "bCastShadows": True
+    }
 )
+
+# Create material ball and gray card
+spawn_actor(
+    actor_class="StaticMeshActor",
+    name="MaterialBall",
+    location={"x": 0, "y": 0, "z": 100},
+    properties={"static_mesh": "/Engine/BasicShapes/Sphere"}
+)
+
+# Modify any property via reflection - matches UE UPROPERTY names
+set_actor_properties(
+    name="KeyLight",
+    properties={
+        "intensity": 15.0,
+        "temperature": 6500
+        # Unmatched properties are silently ignored
+    }
+)
+
+# List actors with filtering
+get_actors(actor_class="Light")
+get_actors(actor_class="StaticMesh", detailed=True)
 
 # Capture viewport screenshot for review
 get_viewport_screenshot(
     output_path="C:/renders/asset_review.png",
     format="png"
 )
-
-# List and manage lights
-get_lights(light_type="directional")
-set_light_properties(name="KeyLight", intensity=5.0)
 ```
+
+> **New**: 5 generic tools replace 8+ specialized tools. Supports any Actor type without code changes.
 
 ---
 

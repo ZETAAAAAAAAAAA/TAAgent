@@ -1,5 +1,6 @@
 #include "Commands/EpicUnrealMCPEditorCommands.h"
 #include "Commands/EpicUnrealMCPCommonUtils.h"
+#include "Commands/EpicUnrealMCPEnvironmentCommands.h"
 #include "Editor.h"
 #include "EditorViewportClient.h"
 #include "LevelEditorViewport.h"
@@ -51,14 +52,6 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleCommand(const FStrin
     else if (CommandType == TEXT("find_actors_by_name"))
     {
         return HandleFindActorsByName(Params);
-    }
-    else if (CommandType == TEXT("spawn_actor"))
-    {
-        return HandleSpawnActor(Params);
-    }
-    else if (CommandType == TEXT("delete_actor"))
-    {
-        return HandleDeleteActor(Params);
     }
     else if (CommandType == TEXT("set_actor_transform"))
     {
@@ -148,8 +141,10 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleFindActorsByName(con
     return ResultObj;
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleSpawnActor(const TSharedPtr<FJsonObject>& Params)
 {
+    // Deprecated: Use FEpicUnrealMCPEnvironmentCommands::HandleSpawnActor instead (reflection-based)
     // Get required parameters
     FString ActorType;
     if (!Params->TryGetStringField(TEXT("type"), ActorType))
@@ -261,7 +256,9 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleSpawnActor(const TSh
 
     return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to create actor"));
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleDeleteActor(const TSharedPtr<FJsonObject>& Params)
 {
     FString ActorName;
@@ -291,6 +288,7 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleDeleteActor(const TS
     
     return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Actor not found: %s"), *ActorName));
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 TSharedPtr<FJsonObject> FEpicUnrealMCPEditorCommands::HandleSetActorTransform(const TSharedPtr<FJsonObject>& Params)
 {

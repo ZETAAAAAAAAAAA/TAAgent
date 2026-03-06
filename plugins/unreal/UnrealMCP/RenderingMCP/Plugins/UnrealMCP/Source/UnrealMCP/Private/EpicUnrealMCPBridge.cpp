@@ -247,7 +247,6 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
                      CommandType == TEXT("set_static_mesh_properties") ||
                      CommandType == TEXT("set_mesh_material_color") ||
                      CommandType == TEXT("create_material") ||
-                     CommandType == TEXT("get_available_materials") ||
                      CommandType == TEXT("apply_material_to_actor") ||
                      CommandType == TEXT("apply_material_to_blueprint") ||
                      CommandType == TEXT("get_actor_material_info") ||
@@ -256,17 +255,12 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
                      CommandType == TEXT("analyze_blueprint_graph") ||
                      CommandType == TEXT("get_blueprint_variable_details") ||
                      CommandType == TEXT("get_blueprint_function_details") ||
-                     CommandType == TEXT("add_material_expression") ||
-                     CommandType == TEXT("connect_material_nodes") ||
                      CommandType == TEXT("build_material_graph") ||
-                     CommandType == TEXT("set_material_properties") ||
                     CommandType == TEXT("compile_material") ||
-                    CommandType == TEXT("get_material_expressions") ||
+                    CommandType == TEXT("get_material_graph") ||
                     CommandType == TEXT("create_material_function") ||
-                    CommandType == TEXT("get_material_functions") ||
                     CommandType == TEXT("get_material_function_content") ||
-                    CommandType == TEXT("get_material_properties") ||
-                    CommandType == TEXT("get_material_connections") ||
+                    CommandType == TEXT("get_assets") ||
                     CommandType == TEXT("import_texture") ||
                     CommandType == TEXT("set_static_mesh_asset_properties"))
             {

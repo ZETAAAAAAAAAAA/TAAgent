@@ -160,10 +160,6 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPBlueprintCommands::HandleCommand(const FSt
     {
         return HandleCreateMaterial(Params);
     }
-    else if (CommandType == TEXT("get_available_materials"))
-    {
-        return HandleGetAvailableMaterials(Params);
-    }
     else if (CommandType == TEXT("apply_material_to_actor"))
     {
         return HandleApplyMaterialToActor(Params);
@@ -201,32 +197,23 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPBlueprintCommands::HandleCommand(const FSt
     {
         return HandleCompileMaterial(Params);
     }
-    else if (CommandType == TEXT("get_material_expressions"))
+    else if (CommandType == TEXT("get_material_graph"))
     {
-        return HandleGetMaterialExpressions(Params);
+        return HandleGetMaterialGraph(Params);
     }
     else if (CommandType == TEXT("create_material_function"))
     {
         return HandleCreateMaterialFunction(Params);
     }
     // Material Function commands
-    else if (CommandType == TEXT("get_material_functions"))
-    {
-        return HandleGetMaterialFunctions(Params);
-    }
     else if (CommandType == TEXT("get_material_function_content"))
     {
         return HandleGetMaterialFunctionContent(Params);
     }
-    // Material property reader
-    else if (CommandType == TEXT("get_material_properties"))
+    // Generic asset listing
+    else if (CommandType == TEXT("get_assets"))
     {
-        return HandleGetMaterialProperties(Params);
-    }
-    // Material connections reader
-    else if (CommandType == TEXT("get_material_connections"))
-    {
-        return HandleGetMaterialConnections(Params);
+        return HandleGetAssets(Params);
     }
     // Texture import command
     else if (CommandType == TEXT("import_texture"))
@@ -1036,6 +1023,97 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPBlueprintCommands::HandleGetAvailableMater
     ResultObj->SetNumberField(TEXT("count"), MaterialArray.Num());
     ResultObj->SetStringField(TEXT("search_path_used"), SearchPath.IsEmpty() ? TEXT("/Game/") : SearchPath);
     
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPBlueprintCommands::HandleGetAssets(const TSharedPtr<FJsonObject>& Params)
+{
+    // Get search path (optional, defaults to /Game/)
+    FString SearchPath;
+    if (!Params->TryGetStringField(TEXT("path"), SearchPath))
+    {
+        SearchPath = TEXT("/Game/");
+    }
+    
+    // Get optional asset class filter
+    FString AssetClass;
+    Params->TryGetStringField(TEXT("asset_class"), AssetClass);
+    
+    // Get optional name filter
+    FString NameFilter;
+    Params->TryGetStringField(TEXT("name_filter"), NameFilter);
+
+    // Get asset registry module
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+    // Build asset data filter
+    FARFilter Filter;
+    Filter.PackagePaths.Add(*SearchPath);
+    Filter.bRecursivePaths = true;
+    Filter.bRecursiveClasses = true;
+    
+    // Map asset class names to UE class paths
+    if (!AssetClass.IsEmpty())
+    {
+        FString LowerClass = AssetClass.ToLower();
+        if (LowerClass == TEXT("material"))
+        {
+            Filter.ClassPaths.Add(UMaterial::StaticClass()->GetClassPathName());
+            Filter.ClassPaths.Add(UMaterialInstance::StaticClass()->GetClassPathName());
+        }
+        else if (LowerClass == TEXT("materialfunction") || LowerClass == TEXT("material_function"))
+        {
+            Filter.ClassPaths.Add(FTopLevelAssetPath(TEXT("/Script/Engine.MaterialFunction")));
+        }
+        else if (LowerClass == TEXT("texture"))
+        {
+            Filter.ClassPaths.Add(UTexture::StaticClass()->GetClassPathName());
+        }
+        else if (LowerClass == TEXT("staticmesh") || LowerClass == TEXT("static_mesh"))
+        {
+            Filter.ClassPaths.Add(UStaticMesh::StaticClass()->GetClassPathName());
+        }
+        else if (LowerClass == TEXT("blueprint"))
+        {
+            Filter.ClassPaths.Add(FTopLevelAssetPath(TEXT("/Script/Engine.Blueprint")));
+        }
+    }
+
+    TArray<FAssetData> AssetDataList;
+    AssetRegistry.GetAssets(Filter, AssetDataList);
+
+    TArray<TSharedPtr<FJsonValue>> AssetsArray;
+    
+    for (const FAssetData& AssetData : AssetDataList)
+    {
+        FString AssetName = AssetData.AssetName.ToString();
+        
+        // Apply name filter if specified
+        if (!NameFilter.IsEmpty() && !AssetName.Contains(NameFilter))
+        {
+            continue;
+        }
+        
+        TSharedPtr<FJsonObject> AssetObj = MakeShared<FJsonObject>();
+        AssetObj->SetStringField(TEXT("name"), AssetName);
+        AssetObj->SetStringField(TEXT("path"), AssetData.GetObjectPathString());
+        AssetObj->SetStringField(TEXT("class"), AssetData.AssetClassPath.ToString());
+        AssetObj->SetStringField(TEXT("package"), AssetData.PackageName.ToString());
+        
+        AssetsArray.Add(MakeShared<FJsonValueObject>(AssetObj));
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetArrayField(TEXT("assets"), AssetsArray);
+    ResultObj->SetNumberField(TEXT("count"), AssetsArray.Num());
+    ResultObj->SetStringField(TEXT("path"), SearchPath);
+    if (!AssetClass.IsEmpty())
+    {
+        ResultObj->SetStringField(TEXT("asset_class"), AssetClass);
+    }
+    ResultObj->SetBoolField(TEXT("success"), true);
+
     return ResultObj;
 }
 
@@ -4478,6 +4556,127 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPBlueprintCommands::HandleGetMaterialConnec
     ResultObj->SetObjectField(TEXT("property_connections"), PropertyConnectionsObj);
     ResultObj->SetNumberField(TEXT("node_count"), Expressions.Num());
     ResultObj->SetStringField(TEXT("material_name"), Material->GetName());
+    ResultObj->SetBoolField(TEXT("success"), true);
+
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPBlueprintCommands::HandleGetMaterialGraph(const TSharedPtr<FJsonObject>& Params)
+{
+    // Get material name
+    FString MaterialName;
+    if (!Params->TryGetStringField(TEXT("material_name"), MaterialName))
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'material_name' parameter"));
+    }
+
+    // Find or load the material
+    FString MaterialPath = MaterialName.StartsWith(TEXT("/")) ? MaterialName : FString::Printf(TEXT("/Game/Materials/%s"), *MaterialName);
+    UMaterial* Material = Cast<UMaterial>(UEditorAssetLibrary::LoadAsset(MaterialPath));
+    if (!Material)
+    {
+        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Material not found: %s"), *MaterialPath));
+    }
+
+    // Build expression to node_id map
+    TMap<UMaterialExpression*, FString> ExprToNodeId;
+    const TArray<UMaterialExpression*>& Expressions = Material->GetExpressionCollection().Expressions;
+    
+    // Build nodes array (from expressions)
+    TArray<TSharedPtr<FJsonValue>> NodesArray;
+    for (UMaterialExpression* Expr : Expressions)
+    {
+        if (Expr)
+        {
+            TSharedPtr<FJsonObject> NodeObj = MakeShared<FJsonObject>();
+            FString TypeName = Expr->GetClass()->GetName();
+            TypeName.ReplaceInline(TEXT("MaterialExpression"), TEXT(""));
+            FString NodeId = FString::Printf(TEXT("Expr_%s_%d"), *TypeName, Expr->GetUniqueID());
+            ExprToNodeId.Add(Expr, NodeId);
+            
+            NodeObj->SetStringField(TEXT("node_id"), NodeId);
+            NodeObj->SetStringField(TEXT("type"), TypeName);
+            NodeObj->SetNumberField(TEXT("pos_x"), Expr->MaterialExpressionEditorX);
+            NodeObj->SetNumberField(TEXT("pos_y"), Expr->MaterialExpressionEditorY);
+            NodeObj->SetStringField(TEXT("desc"), Expr->Desc);
+            
+            NodesArray.Add(MakeShared<FJsonValueObject>(NodeObj));
+        }
+    }
+
+    // Build connections array
+    TArray<TSharedPtr<FJsonValue>> ConnectionsArray;
+    
+    for (UMaterialExpression* Expr : Expressions)
+    {
+        if (!Expr) continue;
+        
+        FString TargetNodeId = ExprToNodeId[Expr];
+        
+        // Get inputs
+        int32 InputIndex = 0;
+        FExpressionInput* Input = Expr->GetInput(InputIndex);
+        while (Input)
+        {
+            if (Input->Expression)
+            {
+                FString* SourceNodeId = ExprToNodeId.Find(Input->Expression);
+                if (SourceNodeId)
+                {
+                    TSharedPtr<FJsonObject> ConnObj = MakeShared<FJsonObject>();
+                    ConnObj->SetStringField(TEXT("source_node"), *SourceNodeId);
+                    ConnObj->SetStringField(TEXT("target_node"), TargetNodeId);
+                    ConnObj->SetNumberField(TEXT("output_index"), Input->OutputIndex);
+                    
+                    // Get output name
+                    TArray<FExpressionOutput>& Outputs = Input->Expression->GetOutputs();
+                    if (Input->OutputIndex >= 0 && Input->OutputIndex < Outputs.Num())
+                    {
+                        ConnObj->SetStringField(TEXT("output_name"), Outputs[Input->OutputIndex].OutputName.ToString());
+                    }
+                    
+                    ConnectionsArray.Add(MakeShared<FJsonValueObject>(ConnObj));
+                }
+            }
+            InputIndex++;
+            Input = Expr->GetInput(InputIndex);
+        }
+    }
+
+    // Get property connections
+    TSharedPtr<FJsonObject> PropertyConnectionsObj = MakeShared<FJsonObject>();
+    
+    auto AddPropertyConnection = [&](const FString& PropertyName, EMaterialProperty MaterialProperty) {
+        FExpressionInput* PropertyInput = Material->GetExpressionInputForProperty(MaterialProperty);
+        if (PropertyInput && PropertyInput->Expression)
+        {
+            TSharedPtr<FJsonObject> PropConnObj = MakeShared<FJsonObject>();
+            FString* ConnectedNodeId = ExprToNodeId.Find(PropertyInput->Expression);
+            if (ConnectedNodeId)
+            {
+                PropConnObj->SetStringField(TEXT("node_id"), *ConnectedNodeId);
+                PropConnObj->SetNumberField(TEXT("output_index"), PropertyInput->OutputIndex);
+                PropertyConnectionsObj->SetObjectField(PropertyName, PropConnObj);
+            }
+        }
+    };
+
+    AddPropertyConnection(TEXT("BaseColor"), MP_BaseColor);
+    AddPropertyConnection(TEXT("Metallic"), MP_Metallic);
+    AddPropertyConnection(TEXT("Specular"), MP_Specular);
+    AddPropertyConnection(TEXT("Roughness"), MP_Roughness);
+    AddPropertyConnection(TEXT("Normal"), MP_Normal);
+    AddPropertyConnection(TEXT("EmissiveColor"), MP_EmissiveColor);
+    AddPropertyConnection(TEXT("Opacity"), MP_Opacity);
+    AddPropertyConnection(TEXT("OpacityMask"), MP_OpacityMask);
+    AddPropertyConnection(TEXT("AmbientOcclusion"), MP_AmbientOcclusion);
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetArrayField(TEXT("nodes"), NodesArray);
+    ResultObj->SetArrayField(TEXT("connections"), ConnectionsArray);
+    ResultObj->SetObjectField(TEXT("property_connections"), PropertyConnectionsObj);
+    ResultObj->SetNumberField(TEXT("node_count"), NodesArray.Num());
+    ResultObj->SetNumberField(TEXT("connection_count"), ConnectionsArray.Num());
     ResultObj->SetBoolField(TEXT("success"), true);
 
     return ResultObj;

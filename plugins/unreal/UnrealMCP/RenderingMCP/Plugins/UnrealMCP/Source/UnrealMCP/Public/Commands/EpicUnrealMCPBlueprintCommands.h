@@ -40,18 +40,14 @@ private:
     
     // Batch material graph builder (replaces multiple add+connect calls)
     TSharedPtr<FJsonObject> HandleBuildMaterialGraph(const TSharedPtr<FJsonObject>& Params);
-    TSharedPtr<FJsonObject> HandleGetMaterialExpressions(const TSharedPtr<FJsonObject>& Params);
+    TSharedPtr<FJsonObject> HandleGetMaterialGraph(const TSharedPtr<FJsonObject>& Params);  // Merges expressions + connections
     TSharedPtr<FJsonObject> HandleCreateMaterialFunction(const TSharedPtr<FJsonObject>& Params);
     
     // Material Function functions
-    TSharedPtr<FJsonObject> HandleGetMaterialFunctions(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleGetMaterialFunctionContent(const TSharedPtr<FJsonObject>& Params);
     
-    // Material property reader
-    TSharedPtr<FJsonObject> HandleGetMaterialProperties(const TSharedPtr<FJsonObject>& Params);
-    
-    // Material connections reader
-    TSharedPtr<FJsonObject> HandleGetMaterialConnections(const TSharedPtr<FJsonObject>& Params);
+    // Generic asset listing (replaces get_available_materials and get_material_functions)
+    TSharedPtr<FJsonObject> HandleGetAssets(const TSharedPtr<FJsonObject>& Params);
     
     // Texture import function
     TSharedPtr<FJsonObject> HandleImportTexture(const TSharedPtr<FJsonObject>& Params);

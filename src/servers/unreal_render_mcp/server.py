@@ -2,14 +2,13 @@
 Unreal Render MCP Server
 
 专门用于Unreal Engine渲染操作的MCP服务器
-包含材质、纹理、网格导入相关的15个工具
+包含材质、纹理、网格导入相关的21个工具
 
 工具列表:
 - 材质图构建 (1个): build_material_graph
-- 材质分析 (5个): compile_material, get_material_expressions, get_material_functions, 
-  get_material_function_content, get_material_properties, get_material_connections, get_available_materials
-- 通用资产操作 (6个): create_asset, delete_asset, set_asset_properties, get_asset_properties,
-  batch_create_assets, batch_set_assets_properties
+- 材质分析 (3个): compile_material, get_material_graph, get_material_function_content
+- 通用资产操作 (7个): create_asset, delete_asset, set_asset_properties, get_asset_properties,
+  get_assets, batch_create_assets, batch_set_assets_properties
 - 通用Actor操作 (8个): spawn_actor, delete_actor, get_actors, set_actor_properties, 
   get_actor_properties, batch_spawn_actors, batch_delete_actors, batch_set_actors_properties
 - 纹理导入 (2个): import_texture, set_texture_properties
@@ -374,7 +373,7 @@ def build_material_graph(
 
 
 # ============================================================================
-# Material Analysis Tools (7 tools)
+# Material Analysis Tools (4 tools)
 # ============================================================================
 
 @mcp.tool()
@@ -398,49 +397,36 @@ def compile_material(material_name: str) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def get_material_expressions(material_name: str) -> Dict[str, Any]:
+def get_material_graph(material_name: str) -> Dict[str, Any]:
     """
-    Get list of all expressions in a material.
+    Get complete material graph including nodes and connections.
+    
+    Merges get_material_expressions and get_material_connections into one call.
     
     Args:
         material_name: Name or path of the material
     
     Returns:
-        Dictionary with list of material expressions
+        Dictionary with:
+        - nodes: List of material expression nodes
+          - node_id: Unique identifier
+          - type: Expression class name (e.g., "MaterialExpressionTextureSample")
+          - position: {x, y} coordinates in graph
+          - properties: Node-specific properties
+        - connections: List of connections between nodes
+          - source_node: Source node ID
+          - target_node: Target node ID
+          - source_output: Output pin name
+          - target_input: Input pin name
+        - property_connections: Dict mapping material properties to connected nodes
+          - BaseColor, Metallic, Specular, Roughness, Normal, etc.
     """
     unreal = get_unreal_connection()
     try:
-        response = unreal.send_command("get_material_expressions", {"material_name": material_name})
+        response = unreal.send_command("get_material_graph", {"material_name": material_name})
         return response or {"success": False, "message": "No response from Unreal"}
     except Exception as e:
-        logger.error(f"get_material_expressions error: {e}")
-        return {"success": False, "message": str(e)}
-
-
-@mcp.tool()
-def get_material_functions(
-    path: str = "/Engine/Functions/",
-    name_filter: str = None
-) -> Dict[str, Any]:
-    """
-    Get list of Material Functions in a specified path.
-    
-    Args:
-        path: Search path (default: /Engine/Functions/)
-        name_filter: Optional filter string for function names
-    
-    Returns:
-        Dictionary with list of material functions and their paths
-    """
-    unreal = get_unreal_connection()
-    try:
-        params = {"path": path}
-        if name_filter:
-            params["name_filter"] = name_filter
-        response = unreal.send_command("get_material_functions", params)
-        return response or {"success": False, "message": "No response from Unreal"}
-    except Exception as e:
-        logger.error(f"get_material_functions error: {e}")
+        logger.error(f"get_material_graph error: {e}")
         return {"success": False, "message": str(e)}
 
 
@@ -461,80 +447,6 @@ def get_material_function_content(function_path: str) -> Dict[str, Any]:
         return response or {"success": False, "message": "No response from Unreal"}
     except Exception as e:
         logger.error(f"get_material_function_content error: {e}")
-        return {"success": False, "message": str(e)}
-
-
-@mcp.tool()
-def get_material_properties(material_name: str) -> Dict[str, Any]:
-    """
-    Get material properties including BlendMode, ShadingModel, TwoSided, MaterialDomain, etc.
-    
-    Args:
-        material_name: Name or path of the material
-    
-    Returns:
-        Dictionary with material properties:
-        - blend_mode: Opaque, Masked, Translucent, Additive, Modulate, AlphaComposite
-        - shading_models: List of enabled shading models
-        - two_sided: Whether material is two-sided
-        - material_domain: Surface, DeferredDecal, LightFunction, Volume, PostProcess, UserInterface
-        - is_masked: Whether material uses masking
-        - opacity_mask_clip_value: Clip value for masked materials
-    """
-    unreal = get_unreal_connection()
-    try:
-        response = unreal.send_command("get_material_properties", {"material_name": material_name})
-        return response or {"success": False, "message": "No response from Unreal"}
-    except Exception as e:
-        logger.error(f"get_material_properties error: {e}")
-        return {"success": False, "message": str(e)}
-
-
-@mcp.tool()
-def get_material_connections(material_name: str) -> Dict[str, Any]:
-    """
-    Get node connection relationships in a material.
-    
-    Args:
-        material_name: Name or path of the material
-    
-    Returns:
-        Dictionary with:
-        - node_connections: List of nodes and their input connections
-          - node_id: Unique identifier for the node
-          - inputs: Dict mapping input names to connected nodes
-            - connected_node: node_id of the source node
-            - output_index: Which output pin of the source node
-            - output_name: Name of the output pin
-        - property_connections: Dict mapping material properties to connected nodes
-          - BaseColor, Metallic, Specular, Roughness, Normal, etc.
-    """
-    unreal = get_unreal_connection()
-    try:
-        response = unreal.send_command("get_material_connections", {"material_name": material_name})
-        return response or {"success": False, "message": "No response from Unreal"}
-    except Exception as e:
-        logger.error(f"get_material_connections error: {e}")
-        return {"success": False, "message": str(e)}
-
-
-@mcp.tool()
-def get_available_materials(search_path: str = "/Game/") -> Dict[str, Any]:
-    """
-    Get a list of available materials in the project that can be applied to objects.
-    
-    Args:
-        search_path: Path to search for materials (default: /Game/)
-    
-    Returns:
-        Dictionary with list of available materials
-    """
-    unreal = get_unreal_connection()
-    try:
-        response = unreal.send_command("get_available_materials", {"search_path": search_path})
-        return response or {"success": False, "message": "No response from Unreal"}
-    except Exception as e:
-        logger.error(f"get_available_materials error: {e}")
         return {"success": False, "message": str(e)}
 
 
@@ -1257,6 +1169,57 @@ def get_asset_properties(asset_path: str, properties: list = None) -> Dict[str, 
         return response or {"success": False, "message": "No response from Unreal"}
     except Exception as e:
         logger.error(f"get_asset_properties error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def get_assets(
+    path: str = "/Game/",
+    asset_class: str = None,
+    name_filter: str = None
+) -> Dict[str, Any]:
+    """
+    Get list of assets in the project. Replaces get_available_materials and get_material_functions.
+    获取项目中的资产列表。替代 get_available_materials 和 get_material_functions。
+    
+    Args:
+        path: Search path (default: /Game/)
+        asset_class: Asset class filter (e.g., "Material", "MaterialFunction", "Texture", "StaticMesh")
+                     If not specified, searches for all asset types
+        name_filter: Optional filter string for asset names (partial match)
+    
+    Returns:
+        Dictionary with:
+        - assets: List of asset info
+          - name: Asset name
+          - path: Full asset path
+          - class: Asset class name
+        - count: Total number of assets found
+    
+    Examples:
+        # Get all materials (replaces get_available_materials)
+        get_assets("/Game/", "Material")
+        
+        # Get material functions (replaces get_material_functions)
+        get_assets("/Engine/Functions/", "MaterialFunction")
+        
+        # Get all textures with filter
+        get_assets("/Game/Textures/", "Texture", name_filter="T_")
+        
+        # Get all assets in a folder
+        get_assets("/Game/Meshes/")
+    """
+    unreal = get_unreal_connection()
+    try:
+        params = {"path": path}
+        if asset_class:
+            params["asset_class"] = asset_class
+        if name_filter:
+            params["name_filter"] = name_filter
+        response = unreal.send_command("get_assets", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"get_assets error: {e}")
         return {"success": False, "message": str(e)}
 
 

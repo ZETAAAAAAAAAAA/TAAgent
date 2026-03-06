@@ -10,7 +10,7 @@ This skill provides unified tools for UE asset and actor management through refl
 
 **Match and Modify**: Property names match UE UPROPERTY names. Match → modify, no match → ignore (no error).
 
-## Generic Asset Tools (6 tools)
+## Generic Asset Tools (7 tools)
 
 | Tool | Purpose |
 |------|---------|
@@ -18,8 +18,25 @@ This skill provides unified tools for UE asset and actor management through refl
 | `delete_asset(path)` | Delete asset |
 | `set_asset_properties(path, properties)` | Set any asset properties |
 | `get_asset_properties(path, properties?)` | Get asset properties |
+| `get_assets(path?, asset_class?, name_filter?)` | List assets by type |
 | `batch_create_assets(items)` | Batch create |
 | `batch_set_assets_properties(items)` | Batch modify |
+
+### Asset Listing Examples
+
+```python
+# Get all materials (replaces get_available_materials)
+get_assets("/Game/", "Material")
+
+# Get material functions (replaces get_material_functions)
+get_assets("/Engine/Functions/", "MaterialFunction")
+
+# Get textures with name filter
+get_assets("/Game/Textures/", "Texture", name_filter="T_")
+
+# Get all assets in folder
+get_assets("/Game/Meshes/")
+```
 
 ### Examples
 
@@ -107,31 +124,50 @@ build_material_graph(
 
 **Supported Node Types:** Constant, Constant2/3/4Vector, ScalarParameter, VectorParameter, TextureSample, Multiply, Add, Subtract, Divide, Lerp, Clamp, TextureCoordinate, Time, VertexNormal, WorldPosition, OneMinus, Saturate, Normalize, DotProduct, CrossProduct, ComponentMask, AppendVector, Fresnel, Power, Panner, Rotator, Sine, Cosine, Abs, Floor, Ceil, Frac, SquareRoot, Desaturation, ReflectionVector, CameraPosition, CameraVector
 
-### Legacy Tools (Deprecated)
+### Material Graph Analysis
 
-| Tool | Purpose | Status |
-|------|---------|--------|
-| `add_material_expression(...)` | Add single node | ⚠️ Use `build_material_graph` |
-| `connect_material_nodes(...)` | Connect nodes | ⚠️ Use `build_material_graph` |
-| `get_material_expressions(material)` | List nodes | ✅ Active |
-| `get_material_connections(material)` | Get connections | ✅ Active |
+```python
+# Get complete material graph (nodes + connections)
+get_material_graph("/Game/Materials/M_Material")
+
+# Returns:
+# {
+#   "nodes": [...],
+#   "connections": [...],
+#   "property_connections": {...}
+# }
+```
+
+### Material Function Inspection
+
+```python
+# Get material function details
+get_material_function_content("/Engine/Functions/Engine_MaterialFunctions01/Texturing/BitMask")
+```
 
 ## Other Tools
 
 | Category | Tools |
 |----------|-------|
-| **Material Analysis** | `get_material_properties`, `get_material_functions`, `get_material_function_content`, `get_available_materials` |
+| **Material** | `compile_material` |
+| **Asset Listing** | `get_assets` (replaces `get_available_materials`, `get_material_functions`) |
 | **Texture Import** | `import_texture`, `import_fbx` |
 | **Mesh** | `create_static_mesh_from_data` |
 | **Viewport** | `get_viewport_screenshot` |
 
-## Legacy Tools (Deprecated)
+## Legacy Tools (Removed)
 
-Old specialized tools still work but redirect to generic tools:
-- `create_material` → `create_asset("Material", ...)`
-- `set_material_properties` → `set_asset_properties(...)`
-- `create_light` → `spawn_actor("DirectionalLight", ...)`
-- `set_light_properties` → `set_actor_properties(...)`
+| Removed Tool | Replacement |
+|--------------|-------------|
+| `get_available_materials` | `get_assets(path, "Material")` |
+| `get_material_functions` | `get_assets(path, "MaterialFunction")` |
+| `get_material_expressions` | `get_material_graph` (nodes field) |
+| `get_material_connections` | `get_material_graph` (connections field) |
+| `get_material_properties` | `get_asset_properties` |
+| `create_material` | `create_asset("Material", ...)` |
+| `set_material_properties` | `set_asset_properties(...)` |
+| `create_light` | `spawn_actor("DirectionalLight", ...)` |
+| `set_light_properties` | `set_actor_properties(...)` |
 
 ## Common Property Names
 

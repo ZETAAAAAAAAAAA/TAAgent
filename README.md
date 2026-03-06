@@ -25,7 +25,7 @@ AI Agent
     │      • Capture analysis, draw calls, shaders
     │      • Texture extraction, mesh export (FBX)
     │
-    └──► Unreal Render MCP (23 tools)
+    └──► Unreal Render MCP (21 tools)
            • Generic asset/actor tools (reflection-based)
            • Material graph tools
            • Viewport capture
@@ -86,14 +86,15 @@ python src/scripts/install_extension.py
 | **Texture** | `get_texture_info`, `get_texture_data`, `save_texture` |
 | **Mesh** | `get_mesh_data`, `export_mesh_as_fbx`, `get_buffer_contents`, `export_mesh_csv` |
 
-### Unreal Render MCP (24 Tools - Clean)
+### Unreal Render MCP (21 Tools - Clean)
 
-**Generic Asset Tools** (6) - *New reflection-based*
+**Generic Asset Tools** (7) - *New reflection-based*
 ```python
 create_asset(type, name, path, properties)      # Any asset type
 delete_asset(path)
 set_asset_properties(path, properties)          # Universal property setting
 get_asset_properties(path, properties?)
+get_assets(path?, asset_class?, name_filter?)   # List assets
 batch_create_assets(items)
 batch_set_assets_properties(items)
 ```
@@ -112,7 +113,9 @@ batch_set_actors_properties(items)
 
 **Material Graph** (Recommended): `build_material_graph` - Batch build entire material graphs in one call
 
-**Material Analysis** (4): `get_material_expressions`, `get_material_connections`, `get_material_properties`, `get_material_functions`
+**Material Analysis** (2): `compile_material`, `get_material_graph` - Get complete node graph with connections
+
+**Material Functions**: `get_material_function_content`
 
 **Import** (2): `import_texture`, `import_fbx`
 

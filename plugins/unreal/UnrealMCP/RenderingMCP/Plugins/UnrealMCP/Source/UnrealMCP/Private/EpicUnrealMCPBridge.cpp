@@ -293,20 +293,8 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
                 ResultJson = BlueprintGraphCommands->HandleCommand(CommandType, Params);
             }
             // Niagara Commands
-            else if (CommandType == TEXT("spawn_niagara_system") ||
-                     CommandType == TEXT("spawn_niagara_system_attached") ||
-                     CommandType == TEXT("get_niagara_systems") ||
-                     CommandType == TEXT("set_niagara_float_parameter") ||
-                     CommandType == TEXT("set_niagara_vector_parameter") ||
-                     CommandType == TEXT("set_niagara_color_parameter") ||
-                     CommandType == TEXT("set_niagara_bool_parameter") ||
-                     CommandType == TEXT("set_niagara_int_parameter") ||
-                     CommandType == TEXT("set_niagara_texture_parameter") ||
-                     CommandType == TEXT("get_niagara_parameters") ||
-                     CommandType == TEXT("activate_niagara_system") ||
-                     CommandType == TEXT("deactivate_niagara_system") ||
-                     CommandType == TEXT("destroy_niagara_system") ||
-                     CommandType == TEXT("get_niagara_assets"))
+            else if (CommandType == TEXT("get_niagara_asset_details") ||
+                     CommandType == TEXT("update_niagara_asset"))
             {
                 ResultJson = NiagaraCommands->HandleCommand(CommandType, Params);
             }

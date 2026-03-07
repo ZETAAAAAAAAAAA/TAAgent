@@ -45,9 +45,33 @@ public class UnrealMCP : ModuleRules
 				"UnrealEd",           // For Blueprint editing
 				"BlueprintGraph",     // For K2Node classes (F15-F22)
 				"KismetCompiler",     // For Blueprint compilation (F15-F22)
-				"Niagara"             // For Niagara particle systems
+				"Niagara",            // For Niagara particle systems
+				"NiagaraShader"       // For Stateless Niagara (NiagaraStatelessSimulationShader.h)
 			}
 		);
+		
+		// UE 5.7+ Stateless Niagara support - add Internal include paths
+		// NiagaraStatelessSimulationShader.h is in NiagaraShader/Internal/Stateless/
+		string NiagaraShaderPath = System.IO.Path.Combine(ModuleDirectory, "..", "..", "..", "..", "..", "..", "Engine", "Plugins", "FX", "Niagara", "Source", "NiagaraShader");
+		if (!System.IO.Directory.Exists(NiagaraShaderPath))
+		{
+			NiagaraShaderPath = "E:/UE/UE_5.7/Engine/Plugins/FX/Niagara/Source/NiagaraShader";
+		}
+		string NiagaraPath = System.IO.Path.Combine(ModuleDirectory, "..", "..", "..", "..", "..", "..", "Engine", "Plugins", "FX", "Niagara", "Source", "Niagara");
+		if (!System.IO.Directory.Exists(NiagaraPath))
+		{
+			NiagaraPath = "E:/UE/UE_5.7/Engine/Plugins/FX/Niagara/Source/Niagara";
+		}
+		
+		// Add Internal include paths for Stateless API
+		if (System.IO.Directory.Exists(System.IO.Path.Combine(NiagaraShaderPath, "Internal")))
+		{
+			PublicIncludePaths.Add(System.IO.Path.Combine(NiagaraShaderPath, "Internal"));
+		}
+		if (System.IO.Directory.Exists(System.IO.Path.Combine(NiagaraPath, "Internal")))
+		{
+			PublicIncludePaths.Add(System.IO.Path.Combine(NiagaraPath, "Internal"));
+		}
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
@@ -75,9 +99,12 @@ public class UnrealMCP : ModuleRules
 					"PropertyEditor",      // For property editing
 					"ToolMenus",           // For editor UI
 					"BlueprintEditorLibrary", // For Blueprint utilities
-					"MaterialEditor"       // For material creation and editing
+					"MaterialEditor",      // For material creation and editing
+					"NiagaraEditor"        // For Niagara asset editing (AddEmitterToSystem)
 				}
 			);
+
+
 		}
 		
 		DynamicallyLoadedModuleNames.AddRange(

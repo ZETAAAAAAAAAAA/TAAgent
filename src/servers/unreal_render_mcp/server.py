@@ -2,7 +2,7 @@
 Unreal Render MCP Server
 
 专门用于Unreal Engine渲染操作的MCP服务器
-包含材质、纹理、网格导入、Niagara相关的22个工具
+包含材质、纹理、网格导入、Niagara相关的23个工具
 
 工具列表:
 - 材质图构建 (1个): build_material_graph
@@ -13,7 +13,7 @@ Unreal Render MCP Server
   get_actor_properties, batch_spawn_actors, batch_delete_actors, batch_set_actors_properties
 - 纹理导入 (2个): import_texture, set_texture_properties
 - 网格导入 (2个): import_fbx, create_static_mesh_from_data
-- Niagara资产分析 (1个): get_niagara_asset_details
+- Niagara资产 (2个): get_niagara_asset_details, update_niagara_asset
 - 视口截图 (1个): get_viewport_screenshot
 """
 
@@ -1264,6 +1264,8 @@ def batch_set_assets_properties(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         return {"success": False, "message": str(e)}
 
 
+
+
 # ============================================================================
 # Niagara Asset Analysis
 # ============================================================================
@@ -1364,6 +1366,349 @@ def get_niagara_asset_details(
         return response or {"success": False, "message": "No response from Unreal"}
     except Exception as e:
         logger.error(f"get_niagara_asset_details error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def update_niagara_asset(
+    asset_path: str,
+    operations: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Batch update a Niagara system asset with multiple operations.
+    
+    This is a unified tool for all Niagara asset modifications following
+    the MCP design philosophy of minimal tool set.
+    
+    Args:
+        asset_path: Path to the Niagara system asset (e.g., "/Game/Effects/NS_Fire")
+        operations: List of operations to perform. Each operation has:
+            - target: "emitter", "renderer", "parameter", "sim_stage", or "stateless_module"
+            - action: The action to perform
+            - Other fields depending on target and action
+    
+    Operation Formats:
+    
+        # Emitter operations
+        {"target": "emitter", "name": "Flame", "action": "set_enabled", "value": false}
+        {"target": "emitter", "name": "Flame", "action": "rename", "value": "BigFlame"}
+        {"target": "emitter", "name": "Flame", "action": "set_mode", "value": "Standard"}  # or "Stateless" (UE 5.7+)
+        {"target": "emitter", "name": "Smoke", "action": "add", "template": "/Niagara/Templates/SimpleSmoke"}
+        {"target": "emitter", "name": "OldEmitter", "action": "remove"}
+        
+        # Renderer operations
+        {"target": "renderer", "emitter": "Flame", "index": 0, "action": "set_enabled", "value": true}
+        
+        # Parameter operations (script parameters - Standard mode only)
+        {"target": "parameter", "emitter": "Flame", "script": "spawn", "name": "SpawnRate", "value": 100.0}
+        {"target": "parameter", "emitter": "Flame", "script": "update", "name": "Color", "value": [1.0, 0.5, 0.0, 1.0]}
+        
+        # Simulation Stage operations
+        {"target": "sim_stage", "emitter": "Flame", "name": "Collision", "action": "set_enabled", "value": true}
+        
+        # Stateless Module operations (UE 5.7+)
+        # These work on emitters with mode="Stateless"
+        {"target": "stateless_module", "emitter": "Flame", "name": "Color", "action": "set_enabled", "value": true}
+        {"target": "stateless_module", "emitter": "Flame", "name": "Lifetime", "action": "set_property", 
+         "property": "Lifetime", "value": 2.0}
+        {"target": "stateless_module", "emitter": "Flame", "name": "Color", "action": "set_property", 
+         "property": "Color", "value": [1.0, 0.5, 0.0, 1.0]}  # FLinearColor
+    
+    Returns:
+        Dictionary with:
+        {
+            "success": true,
+            "asset_path": "/Game/Effects/NS_Fire",
+            "success_count": 3,
+            "fail_count": 0,
+            "results": [...]
+        }
+    
+    Examples:
+        # Disable an emitter
+        update_niagara_asset("/Game/Effects/NS_Fire", [
+            {"target": "emitter", "name": "Smoke", "action": "set_enabled", "value": False}
+        ])
+        
+        # Modify multiple parameters
+        update_niagara_asset("/Game/Effects/NS_Fire", [
+            {"target": "parameter", "emitter": "Flame", "script": "spawn", "name": "SpawnRate", "value": 50.0},
+            {"target": "parameter", "emitter": "Flame", "script": "update", "name": "Lifetime", "value": 2.0}
+        ])
+        
+        # Add emitter from template and configure
+        update_niagara_asset("/Game/Effects/NS_Fire", [
+            {"target": "emitter", "name": "Sparks", "action": "add", "template": "/Game/Templates/NE_Sparks"},
+            {"target": "parameter", "emitter": "Sparks", "script": "spawn", "name": "SpawnRate", "value": 100.0}
+        ])
+        
+        # UE 5.7+ Stateless emitter operations
+        update_niagara_asset("/Game/Effects/NS_Fire", [
+            {"target": "emitter", "name": "Flame", "action": "set_mode", "value": "Stateless"},
+            {"target": "stateless_module", "emitter": "Flame", "name": "Lifetime", 
+             "action": "set_property", "property": "LifetimeMin", "value": 1.5}
+        ])
+    """
+    unreal = get_unreal_connection()
+    
+    params = {
+        "asset_path": asset_path,
+        "operations": operations
+    }
+    
+    try:
+        response = unreal.send_command("update_niagara_asset", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"update_niagara_asset error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def analyze_stateless_compatibility(
+    asset_path: str,
+    emitter: str
+) -> Dict[str, Any]:
+    """
+    Analyze if a Standard Niagara emitter can be converted to Stateless mode.
+    
+    Checks compatibility of all modules and parameters, identifying:
+    - Graph Module Nodes and their Stateless equivalents
+    - Convertible parameters with Stateless module mappings
+    - Unsupported modules that cannot be migrated
+    - Blockers (event handlers, custom simulation stages) that prevent conversion
+    
+    Args:
+        asset_path: Path to the Niagara system asset (e.g., "/Game/Effects/NS_Fire")
+        emitter: Name of the emitter to analyze
+    
+    Returns:
+        Dictionary with compatibility analysis:
+        {
+            "success": true,
+            "emitter_name": "Flame",
+            "current_mode": "Standard",
+            "can_convert": true,
+            "has_blockers": false,
+            "required_stateless_modules": ["Lifetime", "Color", "Size"],
+            "convertible_modules": [
+                {"name": "Lifetime", "node_class": "NiagaraNodeModule_Lifetime", "supported": true, "stateless_module": "Lifetime"},
+                ...
+            ],
+            "convertible_module_count": 5,
+            "unsupported_modules": [...],
+            "unsupported_module_count": 0,
+            "convertible_parameters": [...],
+            "convertible_parameter_count": 8,
+            "unsupported_parameters": [...],
+            "unsupported_parameter_count": 1,
+            "blockers": [],
+            "message": "Convertible: 5 modules and 8 parameters can be migrated to Stateless"
+        }
+    
+    Examples:
+        # Check if an emitter can be converted
+        result = analyze_stateless_compatibility("/Game/Effects/NS_Fire", "Flame")
+        
+        if result["can_convert"]:
+            print(f"Can convert! {result['convertible_module_count']} modules supported")
+        else:
+            print(f"Cannot convert: {result['message']}")
+            for module in result["unsupported_modules"]:
+                print(f"  - Unsupported: {module['name']} ({module['reason']})")
+    """
+    unreal = get_unreal_connection()
+    
+    params = {
+        "asset_path": asset_path,
+        "emitter": emitter
+    }
+    
+    try:
+        response = unreal.send_command("analyze_stateless_compatibility", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"analyze_stateless_compatibility error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def convert_to_stateless(
+    asset_path: str,
+    emitter: str,
+    force: bool = False
+) -> Dict[str, Any]:
+    """
+    Convert a Standard Niagara emitter to Stateless mode for performance optimization.
+    
+    This tool:
+    1. Analyzes the emitter's compatibility (unless force=True)
+    2. Switches the emitter to Stateless mode
+    3. Migrates parameter values to corresponding Stateless modules
+    
+    Args:
+        asset_path: Path to the Niagara system asset (e.g., "/Game/Effects/NS_Fire")
+        emitter: Name of the emitter to convert
+        force: If True, attempt conversion even with warnings (default: False)
+    
+    Returns:
+        Dictionary with conversion result:
+        {
+            "success": true,
+            "emitter_name": "Flame",
+            "new_mode": "Stateless",
+            "migrated_parameters": [
+                {"parameter": "Particles.Lifetime", "module": "Lifetime", "value": 2.0},
+                ...
+            ],
+            "migrated_count": 5,
+            "message": "Converted to Stateless. 5 parameters migrated."
+        }
+    
+    Performance Benefits of Stateless:
+        - No VM script execution overhead
+        - Pure GPU compute shader processing
+        - Lower memory footprint (no particle pool)
+        - Better for simple effects with high particle counts
+    
+    Limitations:
+        - No event handlers
+        - No custom simulation stages
+        - Limited to 28 predefined modules
+        - Some complex behaviors not supported
+    
+    Examples:
+        # First, analyze compatibility
+        analysis = analyze_stateless_compatibility("/Game/Effects/NS_Fire", "Flame")
+        
+        if analysis["can_convert"]:
+            # Convert with parameter migration
+            result = convert_to_stateless("/Game/Effects/NS_Fire", "Flame")
+            print(f"Converted! {result['migrated_count']} parameters migrated")
+        
+        # Force conversion (may lose some parameters)
+        result = convert_to_stateless("/Game/Effects/NS_Fire", "ComplexEmitter", force=True)
+    """
+    unreal = get_unreal_connection()
+    
+    params = {
+        "asset_path": asset_path,
+        "emitter": emitter,
+        "force": force
+    }
+    
+    try:
+        response = unreal.send_command("convert_to_stateless", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"convert_to_stateless error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@mcp.tool()
+def get_niagara_module_graph(
+    asset_path: str,
+    emitter: str,
+    script: str = "spawn",
+    module: str = ""
+) -> Dict[str, Any]:
+    """
+    Get Niagara Module Graph nodes and connections, similar to get_material_graph for materials.
+    
+    Returns all nodes in the graph with their:
+    - Node type and properties (Input, Output, FunctionCall, Operator, Module, etc.)
+    - Input/Output pins with names and types
+    - Connections between nodes
+    
+    Args:
+        asset_path: Path to the Niagara system asset (e.g., "/Game/Effects/NS_Fire")
+        emitter: Name of the emitter to inspect
+        script: Script type - "spawn" or "update" (default: "spawn")
+        module: Optional filter - only return nodes matching this module name
+    
+    Returns:
+        Dictionary with graph structure:
+        {
+            "success": true,
+            "asset_path": "/Game/Effects/NS_Fire",
+            "emitter_name": "Flame",
+            "script_type": "spawn",
+            "nodes": [
+                {
+                    "node_id": "Node_0",
+                    "type": "Input",
+                    "name": "SpawnRate",
+                    "usage": "input",
+                    "input_name": "SpawnRate",
+                    "input_type": "float",
+                    "default_value": 100.0,
+                    "pos_x": -500,
+                    "pos_y": 0,
+                    "output_pins": [{"name": "Value", "type": "float", "connections": 1}]
+                },
+                {
+                    "node_id": "Node_1",
+                    "type": "FunctionCall",
+                    "name": "Lifetime",
+                    "usage": "function_call",
+                    "function_name": "Lifetime",
+                    "pos_x": 0,
+                    "pos_y": 0,
+                    "input_pins": [...],
+                    "output_pins": [...]
+                },
+                ...
+            ],
+            "node_count": 15,
+            "connections": [
+                {
+                    "source_node": "Node_0",
+                    "source_pin": "Value",
+                    "target_node": "Node_1",
+                    "target_pin": "SpawnRate"
+                },
+                ...
+            ],
+            "connection_count": 12
+        }
+    
+    Node Types:
+        - Input: Parameter input nodes (SpawnRate, Lifetime, Color, etc.)
+        - Output: Script output node
+        - FunctionCall: Function/module call nodes
+        - Operator: Math operator nodes (+, -, *, /, etc.)
+        - Convert: Type conversion nodes
+        - Constant: Constant value nodes
+        - Module: Module wrapper nodes
+    
+    Examples:
+        # Get entire spawn script graph
+        graph = get_niagara_module_graph("/Game/Effects/NS_Fire", "Flame", "spawn")
+        
+        # Get update script graph
+        graph = get_niagara_module_graph("/Game/Effects/NS_Fire", "Flame", "update")
+        
+        # Filter by module name
+        graph = get_niagara_module_graph("/Game/Effects/NS_Fire", "Flame", "spawn", module="Lifetime")
+        
+        # Analyze node connections
+        for conn in graph["connections"]:
+            print(f"{conn['source_node']}:{conn['source_pin']} -> {conn['target_node']}:{conn['target_pin']}")
+    """
+    unreal = get_unreal_connection()
+    
+    params = {
+        "asset_path": asset_path,
+        "emitter": emitter,
+        "script": script,
+        "module": module
+    }
+    
+    try:
+        response = unreal.send_command("get_niagara_module_graph", params)
+        return response or {"success": False, "message": "No response from Unreal"}
+    except Exception as e:
+        logger.error(f"get_niagara_module_graph error: {e}")
         return {"success": False, "message": str(e)}
 
 

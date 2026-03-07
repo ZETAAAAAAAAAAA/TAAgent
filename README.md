@@ -94,7 +94,7 @@ create_asset(type, name, path, properties)      # Any asset type
 delete_asset(path)
 set_asset_properties(path, properties)          # Universal property setting
 get_asset_properties(path, properties?)
-get_assets(path?, asset_class?, name_filter?)   # List assets
+get_assets(path?, asset_class?, name_filter?)   # List assets (use for Niagara: asset_class="NiagaraSystem")
 batch_create_assets(items)
 batch_set_assets_properties(items)
 ```
@@ -118,6 +118,8 @@ batch_set_actors_properties(items)
 **Material Functions**: `get_material_function_content`
 
 **Import** (2): `import_texture`, `import_fbx`
+
+**Niagara** (5): `get_niagara_asset_details` - Deep inspection, `update_niagara_asset` - Batch modify, `analyze_stateless_compatibility` - Check Standard→Stateless conversion, `convert_to_stateless` - Auto-migrate to Stateless (UE 5.7+), `get_niagara_module_graph` - Read module graph nodes/connections
 
 **Viewport** (1): `get_viewport_screenshot`
 
@@ -209,26 +211,28 @@ build_material_graph(
 )
 ```
 
-## Skills
+## Skills (Workflows)
 
 | Skill | Description |
 |-------|-------------|
-| **project-setup** | Installation and build guides |
 | **renderdoc-fbx-export** | Mesh export workflow |
 | **renderdoc-material-reconstruction** | Shader analysis and material reconstruction |
-| **ue-development** | UE generic asset/actor tools, material graphs |
 | **lookdev** | Asset validation environment |
 | **shadertoy-conversion** | Shadertoy to UE conversion |
 
 ## Documentation
 
-| Document | Path |
-|----------|------|
-| FBX Export Workflow | `docs/skills/renderdoc-fbx-export/workflow.md` |
-| Material Reconstruction | `docs/skills/renderdoc-material-reconstruction/workflow.md` |
-| UE Tools Reference | `docs/skills/ue-development/skill.md` |
-| Lookdev Guide | `docs/skills/lookdev/skill.md` |
-| Update & Build | `docs/skills/project-setup/update-and-build.md` |
+| Category | Document | Path |
+|----------|----------|------|
+| **Tools** | UE MCP Tools Reference | `docs/tools/unreal-mcp-tools.md` |
+| **Knowledge** | UE 5.7+ API Notes | `docs/knowledge/ue-api/ue5.7-api-notes.md` |
+| **Knowledge** | Material Functions | `docs/knowledge/material-functions/` |
+| **Project** | Setup & Build Guide | `docs/project/setup.md` |
+| **Workflow** | FBX Export | `docs/skills/renderdoc-fbx-export/workflow.md` |
+| **Workflow** | Material Reconstruction | `docs/skills/renderdoc-material-reconstruction/workflow.md` |
+| **Workflow** | Lookdev Guide | `docs/skills/lookdev/skill.md` |
+| **Tutorials** | Prompt Examples | `docs/tutorials/prompt-examples.md` |
+| **Examples** | Material Examples | `docs/examples/materials/` |
 
 ## Troubleshooting
 

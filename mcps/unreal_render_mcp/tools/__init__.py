@@ -50,6 +50,7 @@ from niagara import (
     update_niagara_graph,
     get_niagara_emitter,
     update_niagara_emitter,
+    get_niagara_compiled_code,
 )
 
 from viewport import (
@@ -89,6 +90,7 @@ __all__ = [
     "update_niagara_graph",
     "get_niagara_emitter",
     "update_niagara_emitter",
+    "get_niagara_compiled_code",
     # Viewport
     "get_viewport_screenshot",
 ]

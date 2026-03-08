@@ -265,3 +265,59 @@ def update_niagara_emitter(
         "asset_path": asset_path,
         "operations": operations
     })
+
+
+# ============================================================================
+# Debug Tools - Compiled Code Inspection
+# ============================================================================
+
+@with_unreal_connection
+def get_niagara_compiled_code(
+    asset_path: str,
+    emitter: Optional[str] = None,
+    script: str = "spawn"
+) -> Dict[str, Any]:
+    """
+    Get compiled HLSL code from Niagara scripts.
+    
+    Returns generated HLSL code for CPU (VM) and GPU (Compute Shader) scripts.
+    Useful for debugging and understanding Niagara execution.
+    
+    Args:
+        asset_path: Path to Niagara System asset
+        emitter: Emitter name (required for particle scripts)
+        script: Script type - "spawn", "update", "gpu_compute", 
+                "system_spawn", or "system_update"
+    
+    Returns:
+        {
+            "success": true,
+            "hlsl_cpu": "...",      // CPU/VM HLSL code
+            "hlsl_gpu": "...",      // GPU Compute Shader HLSL
+            "hlsl_cpu_length": 1234,
+            "hlsl_gpu_length": 5678,
+            "compile_errors": [],
+            "error_count": 0
+        }
+    
+    Examples:
+        # Get spawn script HLSL for an emitter
+        get_niagara_compiled_code("/Game/Effects/NS_Fire", emitter="Flame", script="spawn")
+        
+        # Get update script HLSL
+        get_niagara_compiled_code("/Game/Effects/NS_Fire", emitter="Flame", script="update")
+        
+        # Get GPU compute shader
+        get_niagara_compiled_code("/Game/Effects/NS_Fire", emitter="Flame", script="gpu_compute")
+        
+        # Get system-level script
+        get_niagara_compiled_code("/Game/Effects/NS_Fire", script="system_spawn")
+    """
+    params = {
+        "asset_path": asset_path,
+        "script": script
+    }
+    if emitter:
+        params["emitter"] = emitter
+    
+    return send_command("get_niagara_compiled_code", params)

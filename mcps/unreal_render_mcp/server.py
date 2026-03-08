@@ -4,14 +4,23 @@ Unreal Render MCP Server Entry Point
 FastMCP server for Unreal Engine rendering operations.
 """
 
+import sys
+import os
+
+# Ensure current directory is in path for imports when running as script
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Any
 
 from fastmcp import FastMCP
 
-from .connection import reset_unreal_connection
-from .tools import (
+# Use absolute imports for MCP runtime compatibility
+from connection import reset_unreal_connection
+from tools import (
     # Material
     build_material_graph,
     compile_material,
@@ -44,6 +53,7 @@ from .tools import (
     update_niagara_graph,
     get_niagara_emitter,
     update_niagara_emitter,
+    get_niagara_compiled_code,
     # Viewport
     get_viewport_screenshot,
 )
@@ -139,6 +149,7 @@ mcp.tool()(get_niagara_graph)
 mcp.tool()(update_niagara_graph)
 mcp.tool()(get_niagara_emitter)
 mcp.tool()(update_niagara_emitter)
+mcp.tool()(get_niagara_compiled_code)
 
 
 # ============================================================================

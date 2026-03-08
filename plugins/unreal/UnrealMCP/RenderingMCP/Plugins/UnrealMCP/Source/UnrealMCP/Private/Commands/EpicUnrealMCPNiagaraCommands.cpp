@@ -57,6 +57,10 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPNiagaraCommands::HandleCommand(const FStri
     {
         return HandleUpdateNiagaraEmitter(Params);
     }
+    else if (CommandType == TEXT("get_niagara_compiled_code"))
+    {
+        return HandleGetNiagaraCompiledCode(Params);
+    }
     else
     {
         TSharedPtr<FJsonObject> Result = MakeShareable(new FJsonObject);
@@ -2623,5 +2627,176 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPNiagaraCommands::HandleUpdateNiagaraGraph(
     Result->SetNumberField(TEXT("success_count"), SuccessCount);
     Result->SetNumberField(TEXT("fail_count"), FailCount);
 
+    return Result;
+}
+
+// ============================================================================
+// Debug Tools - Compiled Code Inspection
+// ============================================================================
+
+TSharedPtr<FJsonObject> FEpicUnrealMCPNiagaraCommands::HandleGetNiagaraCompiledCode(const TSharedPtr<FJsonObject>& Params)
+{
+    TSharedPtr<FJsonObject> Result = MakeShareable(new FJsonObject);
+    
+    // Get asset path
+    FString AssetPath;
+    if (!Params->TryGetStringField(TEXT("asset_path"), AssetPath))
+    {
+        Result->SetBoolField(TEXT("success"), false);
+        Result->SetStringField(TEXT("error"), TEXT("Missing asset_path parameter"));
+        return Result;
+    }
+    
+    // Load Niagara System
+    UNiagaraSystem* NiagaraSystem = LoadNiagaraSystemAsset(AssetPath);
+    if (!NiagaraSystem)
+    {
+        Result->SetBoolField(TEXT("success"), false);
+        Result->SetStringField(TEXT("error"), FString::Printf(TEXT("Failed to load Niagara System: %s"), *AssetPath));
+        return Result;
+    }
+    
+    // Get emitter name (required for embedded scripts)
+    FString EmitterName;
+    Params->TryGetStringField(TEXT("emitter"), EmitterName);
+    
+    // Get script type (spawn, update)
+    FString ScriptType = TEXT("spawn");
+    Params->TryGetStringField(TEXT("script"), ScriptType);
+    
+    // Find the script
+    UNiagaraScript* Script = nullptr;
+    
+    if (EmitterName.IsEmpty())
+    {
+        // Try to get system-level script
+        if (ScriptType == TEXT("system_spawn"))
+        {
+            Script = NiagaraSystem->GetSystemSpawnScript();
+        }
+        else if (ScriptType == TEXT("system_update"))
+        {
+            Script = NiagaraSystem->GetSystemUpdateScript();
+        }
+        else
+        {
+            Result->SetBoolField(TEXT("success"), false);
+            Result->SetStringField(TEXT("error"), TEXT("For system scripts, use script='system_spawn' or 'system_update'"));
+            return Result;
+        }
+    }
+    else
+    {
+        // Find emitter handle
+        FNiagaraEmitterHandle* Handle = FindEmitterHandle(NiagaraSystem, EmitterName);
+        if (!Handle)
+        {
+            Result->SetBoolField(TEXT("success"), false);
+            Result->SetStringField(TEXT("error"), FString::Printf(TEXT("Emitter not found: %s"), *EmitterName));
+            return Result;
+        }
+        
+        // Get emitter data (contains script references)
+        FVersionedNiagaraEmitterData* EmitterData = Handle->GetEmitterData();
+        if (!EmitterData)
+        {
+            Result->SetBoolField(TEXT("success"), false);
+            Result->SetStringField(TEXT("error"), TEXT("Failed to get emitter data from handle"));
+            return Result;
+        }
+        
+        // Get script based on type
+        if (ScriptType == TEXT("spawn"))
+        {
+            Script = EmitterData->SpawnScriptProps.Script;
+        }
+        else if (ScriptType == TEXT("update"))
+        {
+            Script = EmitterData->UpdateScriptProps.Script;
+        }
+        else if (ScriptType == TEXT("gpu_compute"))
+        {
+            // GPU compute script uses GetScript with specific usage
+            Script = EmitterData->GetScript(ENiagaraScriptUsage::ParticleGPUComputeScript, FGuid());
+        }
+        else
+        {
+            Result->SetBoolField(TEXT("success"), false);
+            Result->SetStringField(TEXT("error"), FString::Printf(TEXT("Unknown script type: %s. Use 'spawn', 'update', or 'gpu_compute'"), *ScriptType));
+            return Result;
+        }
+    }
+    
+    if (!Script)
+    {
+        Result->SetBoolField(TEXT("success"), false);
+        Result->SetStringField(TEXT("error"), TEXT("Script not found"));
+        return Result;
+    }
+    
+    // Extract compiled HLSL code
+#if WITH_EDITORONLY_DATA
+    // HLSL translations are stored in FNiagaraVMExecutableData
+    const FNiagaraVMExecutableData& VMData = Script->GetVMExecutableData();
+    FString HlslCpu = VMData.LastHlslTranslation;
+    FString HlslGpu = VMData.LastHlslTranslationGPU;
+    
+    // Get compile errors if any
+    TArray<FString> CompileErrors;
+#if WITH_EDITOR
+    if (Script->GetRenderThreadScript())
+    {
+        const TArray<FString>& Errors = Script->GetRenderThreadScript()->GetCompileErrors();
+        for (const FString& Error : Errors)
+        {
+            CompileErrors.Add(Error);
+        }
+    }
+#endif
+    
+    // Build result
+    Result->SetBoolField(TEXT("success"), true);
+    Result->SetStringField(TEXT("asset_path"), AssetPath);
+    Result->SetStringField(TEXT("emitter_name"), EmitterName);
+    Result->SetStringField(TEXT("script_type"), ScriptType);
+    Result->SetStringField(TEXT("script_name"), Script->GetName());
+    
+    // HLSL outputs
+    if (!HlslCpu.IsEmpty())
+    {
+        Result->SetStringField(TEXT("hlsl_cpu"), HlslCpu);
+        Result->SetNumberField(TEXT("hlsl_cpu_length"), HlslCpu.Len());
+    }
+    else
+    {
+        Result->SetStringField(TEXT("hlsl_cpu"), TEXT(""));
+        Result->SetNumberField(TEXT("hlsl_cpu_length"), 0);
+    }
+    
+    if (!HlslGpu.IsEmpty())
+    {
+        Result->SetStringField(TEXT("hlsl_gpu"), HlslGpu);
+        Result->SetNumberField(TEXT("hlsl_gpu_length"), HlslGpu.Len());
+    }
+    else
+    {
+        Result->SetStringField(TEXT("hlsl_gpu"), TEXT(""));
+        Result->SetNumberField(TEXT("hlsl_gpu_length"), 0);
+    }
+    
+    // Compile errors
+    TArray<TSharedPtr<FJsonValue>> ErrorsArray;
+    for (const FString& Error : CompileErrors)
+    {
+        ErrorsArray.Add(MakeShareable(new FJsonValueString(Error)));
+    }
+    Result->SetArrayField(TEXT("compile_errors"), ErrorsArray);
+    Result->SetNumberField(TEXT("error_count"), CompileErrors.Num());
+    
+#else
+    Result->SetBoolField(TEXT("success"), false);
+    Result->SetStringField(TEXT("error"), TEXT("Compiled code inspection is only available in editor builds (WITH_EDITORONLY_DATA)"));
+#endif
+    
     return Result;
 }

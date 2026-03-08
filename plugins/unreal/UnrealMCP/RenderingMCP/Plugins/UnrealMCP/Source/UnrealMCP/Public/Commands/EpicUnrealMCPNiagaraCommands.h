@@ -89,6 +89,21 @@ private:
     TSharedPtr<FJsonObject> HandleUpdateNiagaraEmitter(const TSharedPtr<FJsonObject>& Params);
     
     // ============================================================================
+    // Debug Tools - Compiled Code Inspection
+    // ============================================================================
+    
+    /**
+     * Get compiled HLSL code from Niagara scripts.
+     * 
+     * Returns generated HLSL code for CPU (VM) and GPU (Compute Shader) scripts.
+     * Useful for debugging and understanding Niagara execution.
+     * 
+     * Input: asset_path + emitter + script (like get_niagara_graph)
+     * Output: hlsl_cpu, hlsl_gpu, compile_errors
+     */
+    TSharedPtr<FJsonObject> HandleGetNiagaraCompiledCode(const TSharedPtr<FJsonObject>& Params);
+    
+    // ============================================================================
     // Helper Functions - Graph
     // ============================================================================
     

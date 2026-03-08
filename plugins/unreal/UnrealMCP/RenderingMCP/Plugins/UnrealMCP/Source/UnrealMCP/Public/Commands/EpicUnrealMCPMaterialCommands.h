@@ -66,7 +66,6 @@ private:
     // ============================================================================
     
     TSharedPtr<FJsonObject> HandleImportTexture(const TSharedPtr<FJsonObject>& Params);
-    TSharedPtr<FJsonObject> HandleSetTextureProperties(const TSharedPtr<FJsonObject>& Params);
 
     // ============================================================================
     // Helper Functions

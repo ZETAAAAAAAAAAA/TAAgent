@@ -259,13 +259,11 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
             else if (CommandType == TEXT("create_material") ||
                      CommandType == TEXT("create_material_function") ||
                      CommandType == TEXT("build_material_graph") ||
-                     CommandType == TEXT("compile_material") ||
                      CommandType == TEXT("get_material_graph") ||
                      CommandType == TEXT("set_material_properties") ||
                      CommandType == TEXT("create_material_instance") ||
                      CommandType == TEXT("set_material_instance_parameter") ||
-                     CommandType == TEXT("import_texture") ||
-                     CommandType == TEXT("set_texture_properties"))
+                     CommandType == TEXT("import_texture"))
             {
                 ResultJson = MaterialCommands->HandleCommand(CommandType, Params);
             }

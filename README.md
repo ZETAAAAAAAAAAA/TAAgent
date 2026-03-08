@@ -43,29 +43,53 @@ TA Agent
 |
 ├── .codebuddy/                   # Agent 核心
 │   ├── agents/                   # Agent 定义
-│   │   └── TA-Agent.md
+│   │   └── TA-Agent.md           # TA 身份与能力定义
 │   │
 │   ├── rules/                    # 项目规则 (始终加载)
-│   │   └── mcp-development.mdc
+│   │   ├── mcp-development.mdc   # MCP 开发指南
+│   │   └── skills-guidelines.mdc # skill 开发指南
 │   │
 │   ├── skills/                   # 技能模块 (按需加载)
-│   │   ├── renderdoc-reverse-engineering/
-│   │   ├── ue-material-workflow/
-│   │   └── ue-niagara-workflow/
+│   │   ├── renderdoc-reverse-engineering/   # GPU 捕获逆向分析
+│   │   │   ├── SKILL.md
+│   │   │   └── references/       # MCP工具参考、顶点格式
+│   │   │
+│   │   ├── ue-material-workflow/            # UE 材质系统
+│   │   │   ├── SKILL.md
+│   │   │   └── references/       # 节点类型、材质函数
+│   │   │
+│   │   ├── ue-niagara-workflow/             # Niagara 粒子系统
+│   │   │   ├── SKILL.md
+│   │   │   └── references/       # 模块列表、架构原理
+│   │   │
+│   │   └── ue-lookdev-workflow/             # 物理灯光与材质校准
+│   │       ├── SKILL.md
+│   │       └── references/       # 灯光参数、HDRI、LookDev工具
 │   │
 │   └── knowledge/                # 领域知识
-│       ├── mcp-tools/            # MCP 工具详细文档
-│       └── ue-api/               # UE API 差异笔记
+│       └── mcp-tools/            # MCP 工具详细文档
+│           ├── renderdoc-mcp.md
+│           └── unreal-render-mcp.md
 │
 ├── mcps/                         # MCP Server
 │   ├── renderdoc_mcp/            # RenderDoc 分析 MCP
+│   │   ├── mcp_server/           # 服务端实现
+│   │   └── README.md
+│   │
 │   └── unreal_render_mcp/        # UE 创作类 MCP
+│       ├── server.py             # 主入口
+│       ├── handlers/             # 请求处理器
+│       └── tools/                # 工具实现
 │
-├── src/extension/                # RenderDoc 扩展
+├── src/extension/                # RenderDoc Python 扩展
 │
 ├── plugins/unreal/               # UE C++ 插件
+│   └── UnrealMCP/RenderingMCP/   # UE 项目
+│       └── Plugins/UnrealMCP/    # MCP 插件源码
 │
-└── config/                       # 配置模板
+├── config/                       # 配置模板
+├── build_logs/                   # 编译日志
+└── tools/                        # 辅助工具
 ```
 
 ---
@@ -92,13 +116,26 @@ UE 资产与场景操作工具。
 |------|------|
 | **通用资产** | `create_asset`, `delete_asset`, `get_assets`, `set_asset_properties`, `batch_*` |
 | **通用 Actor** | `spawn_actor`, `delete_actor`, `get_actors`, `set_actor_properties`, `batch_*` |
-| **材质图** | `build_material_graph`, `get_material_graph`, `compile_material` |
-| **纹理** | `import_texture`, `set_texture_properties` |
-| **网格** | `import_fbx`, `create_static_mesh_from_data` |
-| **Niagara** | `get_niagara_asset_details`, `update_niagara_asset`, `convert_to_stateless`, ... |
+| **材质图** | `build_material_graph`, `get_material_graph` |
+| **纹理** | `import_texture` |
+| **网格** | `import_fbx` |
+| **Niagara** | `get_niagara_emitter`, `get_niagara_graph`, `update_niagara_emitter`, `update_niagara_graph` |
 | **视口** | `get_viewport_screenshot` |
 
 > 详细文档见 `.codebuddy/knowledge/mcp-tools/`
+
+---
+
+## Skills 概览
+
+| Skill | 用途 | 触发场景 |
+|-------|------|----------|
+| **renderdoc-reverse-engineering** | GPU 捕获逆向分析 | 分析渲染技术、提取资产、复现效果 |
+| **ue-material-workflow** | UE 材质系统操作 | 创建/修改材质、分析材质图 |
+| **ue-niagara-workflow** | Niagara 粒子系统 | 创建/优化粒子效果、Stateless 转换 |
+| **ue-lookdev-workflow** | 物理灯光与材质校准 | HDRI 处理、灯光匹配、材质校准 |
+
+> 详细文档见 `.codebuddy/skills/*/SKILL.md`
 
 ---
 
@@ -153,6 +190,17 @@ python src/scripts/renderdoc/install_extension.py
 | MCP 服务器代码 | `Ctrl+Shift+P` → `Reload Window` |
 | UE 插件代码 | 重新编译 UE 项目 |
 | RenderDoc 扩展 | 重启 RenderDoc |
+
+---
+
+## 编译
+
+```bash
+# Windows
+Build.bat          # 或 Build.ps1
+
+# 日志保存在 build_logs/ 目录
+```
 
 ---
 

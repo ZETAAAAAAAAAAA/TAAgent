@@ -95,7 +95,6 @@ mcp = FastMCP(
 # ============================================================================
 
 mcp.tool()(build_material_graph)
-mcp.tool()(compile_material)
 mcp.tool()(get_material_graph)
 
 
@@ -104,7 +103,6 @@ mcp.tool()(get_material_graph)
 # ============================================================================
 
 mcp.tool()(import_texture)
-mcp.tool()(set_texture_properties)
 
 
 # ============================================================================
@@ -112,7 +110,6 @@ mcp.tool()(set_texture_properties)
 # ============================================================================
 
 mcp.tool()(import_fbx)
-mcp.tool()(create_static_mesh_from_data)
 
 
 # ============================================================================

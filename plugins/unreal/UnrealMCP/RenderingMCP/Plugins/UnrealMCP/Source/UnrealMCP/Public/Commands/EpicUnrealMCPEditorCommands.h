@@ -36,9 +36,6 @@ private:
     // FBX import
     TSharedPtr<FJsonObject> HandleImportFBX(const TSharedPtr<FJsonObject>& Params);
 
-    // Static mesh from data
-    TSharedPtr<FJsonObject> HandleCreateStaticMeshFromData(const TSharedPtr<FJsonObject>& Params);
-
     // ============================================================================
     // Generic Asset Management (通用资产操作 - Refactored)
     // ============================================================================

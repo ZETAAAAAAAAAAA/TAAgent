@@ -10,18 +10,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from material import (
     build_material_graph,
-    compile_material,
     get_material_graph,
 )
 
 from texture import (
     import_texture,
-    set_texture_properties,
 )
 
 from mesh import (
     import_fbx,
-    create_static_mesh_from_data,
 )
 
 from actor import (
@@ -61,14 +58,11 @@ from viewport import (
 __all__ = [
     # Material
     "build_material_graph",
-    "compile_material",
     "get_material_graph",
     # Texture
     "import_texture",
-    "set_texture_properties",
     # Mesh
     "import_fbx",
-    "create_static_mesh_from_data",
     # Actor
     "spawn_actor",
     "delete_actor",

@@ -119,10 +119,6 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPMaterialCommands::HandleCommand(const FStr
     {
         return HandleGetMaterialGraph(Params);
     }
-    else if (CommandType == TEXT("compile_material"))
-    {
-        return HandleCompileMaterial(Params);
-    }
     else if (CommandType == TEXT("set_material_properties"))
     {
         return HandleSetMaterialProperties(Params);
@@ -140,10 +136,6 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPMaterialCommands::HandleCommand(const FStr
     else if (CommandType == TEXT("import_texture"))
     {
         return HandleImportTexture(Params);
-    }
-    else if (CommandType == TEXT("set_texture_properties"))
-    {
-        return HandleSetTextureProperties(Params);
     }
     
     return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown material command: %s"), *CommandType));
@@ -570,124 +562,6 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPMaterialCommands::HandleImportTexture(cons
     return ResultObj;
 }
 
-TSharedPtr<FJsonObject> FEpicUnrealMCPMaterialCommands::HandleSetTextureProperties(const TSharedPtr<FJsonObject>& Params)
-{
-    // Get texture path
-    FString TexturePath;
-    if (!Params->TryGetStringField(TEXT("texture_path"), TexturePath))
-    {
-        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'texture_path' parameter"));
-    }
-
-    // Load texture
-    UTexture* Texture = LoadObject<UTexture>(nullptr, *TexturePath);
-    if (!Texture)
-    {
-        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to load texture: %s"), *TexturePath));
-    }
-
-    bool bModified = false;
-
-    // Set sRGB property
-    if (Params->HasField(TEXT("srgb")))
-    {
-        bool bSRGB = false;
-        Params->TryGetBoolField(TEXT("srgb"), bSRGB);
-        Texture->SRGB = bSRGB;
-        bModified = true;
-    }
-
-    // Set compression settings
-    if (Params->HasField(TEXT("compression_settings")))
-    {
-        FString CompressionSettingsStr;
-        Params->TryGetStringField(TEXT("compression_settings"), CompressionSettingsStr);
-        
-        TextureCompressionSettings CompressionSettings = TC_Default;
-        if (CompressionSettingsStr == TEXT("Default")) CompressionSettings = TC_Default;
-        else if (CompressionSettingsStr == TEXT("NormalMap")) CompressionSettings = TC_Normalmap;
-        else if (CompressionSettingsStr == TEXT("Masks")) CompressionSettings = TC_Masks;
-        else if (CompressionSettingsStr == TEXT("Grayscale")) CompressionSettings = TC_Grayscale;
-        else if (CompressionSettingsStr == TEXT("Displacementmap")) CompressionSettings = TC_Displacementmap;
-        else if (CompressionSettingsStr == TEXT("VectorDisplacementmap")) CompressionSettings = TC_VectorDisplacementmap;
-        else if (CompressionSettingsStr == TEXT("HDR")) CompressionSettings = TC_HDR;
-        else if (CompressionSettingsStr == TEXT("UserInterface")) CompressionSettings = TC_EditorIcon;
-        else if (CompressionSettingsStr == TEXT("Alpha")) CompressionSettings = TC_Alpha;
-        else if (CompressionSettingsStr == TEXT("DistanceFieldFont")) CompressionSettings = TC_DistanceFieldFont;
-        else if (CompressionSettingsStr == TEXT("HDRCompressed")) CompressionSettings = TC_HDR_Compressed;
-        else if (CompressionSettingsStr == TEXT("BC7")) CompressionSettings = TC_BC7;
-        else if (CompressionSettingsStr == TEXT("HalfFloat")) CompressionSettings = TC_HalfFloat;
-        else if (CompressionSettingsStr == TEXT("SingleFloat")) CompressionSettings = TC_SingleFloat;
-        else if (CompressionSettingsStr == TEXT("HDR_F32")) CompressionSettings = TC_HDR_F32;
-        
-        Texture->CompressionSettings = CompressionSettings;
-        bModified = true;
-    }
-
-    // Set filter mode
-    if (Params->HasField(TEXT("filter")))
-    {
-        FString FilterStr;
-        Params->TryGetStringField(TEXT("filter"), FilterStr);
-        
-        TextureFilter Filter = TF_Default;
-        if (FilterStr == TEXT("Default")) Filter = TF_Default;
-        else if (FilterStr == TEXT("Nearest")) Filter = TF_Nearest;
-        else if (FilterStr == TEXT("Bilinear")) Filter = TF_Bilinear;
-        else if (FilterStr == TEXT("Trilinear")) Filter = TF_Trilinear;
-        
-        Texture->Filter = Filter;
-        bModified = true;
-    }
-
-    // Set address mode (wrap settings) - only for Texture2D
-    UTexture2D* Texture2D = Cast<UTexture2D>(Texture);
-    if (Texture2D)
-    {
-        if (Params->HasField(TEXT("address_x")))
-        {
-            FString AddressStr;
-            Params->TryGetStringField(TEXT("address_x"), AddressStr);
-            
-            TextureAddress Address = TA_Wrap;
-            if (AddressStr == TEXT("Wrap")) Address = TA_Wrap;
-            else if (AddressStr == TEXT("Clamp")) Address = TA_Clamp;
-            else if (AddressStr == TEXT("Mirror")) Address = TA_Mirror;
-            
-            Texture2D->AddressX = Address;
-            bModified = true;
-        }
-        if (Params->HasField(TEXT("address_y")))
-        {
-            FString AddressStr;
-            Params->TryGetStringField(TEXT("address_y"), AddressStr);
-            
-            TextureAddress Address = TA_Wrap;
-            if (AddressStr == TEXT("Wrap")) Address = TA_Wrap;
-            else if (AddressStr == TEXT("Clamp")) Address = TA_Clamp;
-            else if (AddressStr == TEXT("Mirror")) Address = TA_Mirror;
-            
-            Texture2D->AddressY = Address;
-            bModified = true;
-        }
-    }
-
-    // Save and reimport if modified
-    if (bModified)
-    {
-        Texture->UpdateResource();
-        Texture->MarkPackageDirty();
-        UEditorAssetLibrary::SaveLoadedAsset(Texture);
-    }
-
-    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
-    ResultObj->SetBoolField(TEXT("success"), true);
-    ResultObj->SetStringField(TEXT("texture_path"), Texture->GetPathName());
-    ResultObj->SetBoolField(TEXT("modified"), bModified);
-
-    return ResultObj;
-}
-
 // ============================================================================
 // Material Properties
 // ============================================================================
@@ -773,38 +647,6 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPMaterialCommands::HandleSetMaterialPropert
     TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
     ResultObj->SetArrayField(TEXT("updated_properties"), 
         TArray<TSharedPtr<FJsonValue>>());
-    ResultObj->SetBoolField(TEXT("success"), true);
-
-    return ResultObj;
-}
-
-// ============================================================================
-// Material Compilation
-// ============================================================================
-
-TSharedPtr<FJsonObject> FEpicUnrealMCPMaterialCommands::HandleCompileMaterial(const TSharedPtr<FJsonObject>& Params)
-{
-    // Get material name
-    FString MaterialName;
-    if (!Params->TryGetStringField(TEXT("material_name"), MaterialName))
-    {
-        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'material_name' parameter"));
-    }
-
-    // Find or load the material
-    FString MaterialPath = MaterialName.StartsWith(TEXT("/")) ? MaterialName : FString::Printf(TEXT("/Game/Materials/%s"), *MaterialName);
-    UMaterial* Material = Cast<UMaterial>(UEditorAssetLibrary::LoadAsset(MaterialPath));
-    if (!Material)
-    {
-        return FEpicUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Material not found: %s"), *MaterialPath));
-    }
-
-    // Force recompile
-    Material->ForceRecompileForRendering();
-
-    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
-    ResultObj->SetStringField(TEXT("material_name"), MaterialName);
-    ResultObj->SetBoolField(TEXT("compiled"), true);
     ResultObj->SetBoolField(TEXT("success"), true);
 
     return ResultObj;

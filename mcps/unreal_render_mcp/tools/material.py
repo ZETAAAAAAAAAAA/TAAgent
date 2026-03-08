@@ -47,12 +47,6 @@ def build_material_graph(
 
 
 @with_unreal_connection
-def compile_material(material_name: str) -> Dict[str, Any]:
-    """Compile a material to update its shader."""
-    return send_command("compile_material", {"material_name": material_name})
-
-
-@with_unreal_connection
 def get_material_graph(asset_path: str, save_to: Optional[str] = None) -> Dict[str, Any]:
     """
     Get complete material or material function graph including nodes and connections.

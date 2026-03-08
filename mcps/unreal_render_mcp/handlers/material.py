@@ -80,10 +80,6 @@ class MaterialHandler:
             params["material_domain"] = material_domain
         return self.connection.send_command("set_material_properties", params)
     
-    def compile_material(self, material_name: str) -> Dict[str, Any]:
-        """Compile a material to update its shader."""
-        return self.connection.send_command("compile_material", {"material_name": material_name})
-    
     def get_material_expressions(self, material_name: str) -> Dict[str, Any]:
         """Get list of all expressions in a material."""
         return self.connection.send_command("get_material_expressions", {"material_name": material_name})

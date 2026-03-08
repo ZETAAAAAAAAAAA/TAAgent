@@ -56,33 +56,3 @@ class TextureHandler:
             params["address_y"] = address_y
         
         return self.connection.send_command("import_texture", params)
-    
-    def set_texture_properties(
-        self,
-        texture_path: str,
-        compression_settings: str = None,
-        srgb: bool = None,
-        filter: str = None,
-        address_x: str = None,
-        address_y: str = None,
-        mip_gen_settings: str = None,
-        max_texture_size: int = None
-    ) -> Dict[str, Any]:
-        """Set texture properties."""
-        params = {"texture_path": texture_path}
-        if compression_settings:
-            params["compression_settings"] = compression_settings
-        if srgb is not None:
-            params["srgb"] = srgb
-        if filter:
-            params["filter"] = filter
-        if address_x:
-            params["address_x"] = address_x
-        if address_y:
-            params["address_y"] = address_y
-        if mip_gen_settings:
-            params["mip_gen_settings"] = mip_gen_settings
-        if max_texture_size:
-            params["max_texture_size"] = max_texture_size
-        
-        return self.connection.send_command("set_texture_properties", params)

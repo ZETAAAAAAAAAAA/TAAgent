@@ -61,6 +61,9 @@ from tools import (
     load_level,
     save_current_level,
     get_current_level,
+    # Blueprint
+    get_blueprint_info,
+    update_blueprint,
 )
 
 
@@ -172,6 +175,14 @@ mcp.tool()(create_level)
 mcp.tool()(load_level)
 mcp.tool()(save_current_level)
 mcp.tool()(get_current_level)
+
+
+# ============================================================================
+# Register Blueprint Tools
+# ============================================================================
+
+mcp.tool()(get_blueprint_info)
+mcp.tool()(update_blueprint)
 
 
 # ============================================================================

@@ -64,6 +64,11 @@ from editor import (
     get_current_level,
 )
 
+from blueprint import (
+    get_blueprint_info,
+    update_blueprint,
+)
+
 __all__ = [
     # Material
     "build_material_graph",
@@ -105,4 +110,7 @@ __all__ = [
     "load_level",
     "save_current_level",
     "get_current_level",
+    # Blueprint
+    "get_blueprint_info",
+    "update_blueprint",
 ]

@@ -251,7 +251,9 @@ FString UEpicUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const T
                      CommandType == TEXT("get_blueprint_variable_details") ||
                      CommandType == TEXT("get_blueprint_function_details") ||
                      CommandType == TEXT("get_assets") ||
-                     CommandType == TEXT("set_static_mesh_asset_properties"))
+                     CommandType == TEXT("set_static_mesh_asset_properties") ||
+                     CommandType == TEXT("get_editor_widget_blueprint_info") ||
+                     CommandType == TEXT("update_editor_widget_blueprint"))
             {
                 ResultJson = BlueprintCommands->HandleCommand(CommandType, Params);
             }

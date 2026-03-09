@@ -35,4 +35,8 @@ private:
     TSharedPtr<FJsonObject> HandleAnalyzeBlueprintGraph(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleGetBlueprintVariableDetails(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleGetBlueprintFunctionDetails(const TSharedPtr<FJsonObject>& Params);
+
+    // Editor Utility Widget Blueprint functions
+    TSharedPtr<FJsonObject> HandleGetEditorWidgetBlueprintInfo(const TSharedPtr<FJsonObject>& Params);
+    TSharedPtr<FJsonObject> HandleUpdateEditorWidgetBlueprint(const TSharedPtr<FJsonObject>& Params);
 }; 

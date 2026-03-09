@@ -16,6 +16,7 @@ provider:
 
 | Skill 名称 | 用途 |
 |-----------|------|
+| `ue-coding-workflow` | UE C++ 编码、编译、错误处理 |
 | `ue-niagara-workflow` | Niagara 粒子系统分析与制作 |
 | `ue-material-workflow` | UE 材质系统操作 |
 | `ue-lookdev-workflow` | 物理灯光环境、HDRI、材质校准 |

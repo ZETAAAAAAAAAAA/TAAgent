@@ -22,6 +22,7 @@ description: This skill should be used when analyzing GPU captures from RenderDo
 |------|------|----------|
 | `references/mcp-tools-reference.md` | RenderDoc MCP 工具完整 API 参考 | 需要了解具体工具参数和用法时 |
 | `references/vertex-formats.md` | 各引擎顶点格式、编码解码、坐标系统 | 导出网格时需要确定属性映射 |
+| `references/control-hiss-fluid-analysis.md` | Control 游戏 Hiss 屏幕空间流体效果分析 | 学习屏幕空间流体实现或分析 Control 渲染技术时 |
 
 ## 核心工作流
 

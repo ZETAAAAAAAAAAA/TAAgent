@@ -22,6 +22,9 @@ description: This skill should be used when working with Unreal Engine Niagara p
 | `references/engine-modules.md` | UE5.7 引擎 Niagara 模块完整列表 (270+) | 需要查找模块路径时 |
 | `references/common-modules.md` | 常用模块详解 (参数、属性、实现原理) | 需要了解模块参数、编写模块配置时 |
 | `references/niagara-architecture.md` | 底层架构原理 (CPU/GPU模式、VectorVM、ParameterMap) | 需要深入理解底层实现或排查复杂问题时 |
+| `references/fluid-systems-analysis.md` | Niagara Fluids 系统分析 (属性数据流、模块参数、美术效果) | 分析或创建流体效果时 |
+| `references/fluid-module-details.md` | 流体模块详细实现 (每个模块的HLSL代码、数学推导、数据流图) | 深入理解模块内部实现时 |
+| `references/grid2d-datainterface.md` | Grid2D DataInterface 实现原理 (数据结构、GPU存储、HLSL接口) | 深入理解 Grid2D 底层实现时 |
 
 ---
 

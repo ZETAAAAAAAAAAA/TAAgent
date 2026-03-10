@@ -27,6 +27,7 @@
 #include "NiagaraNodeOutput.h"
 #include "NiagaraNodeFunctionCall.h"
 #include "NiagaraNodeOp.h"
+#include "NiagaraNodeCustomHlsl.h"
 #include "NiagaraScriptSource.h"
 #include "EdGraph/EdGraphPin.h"
 
@@ -2207,6 +2208,26 @@ TSharedPtr<FJsonObject> FEpicUnrealMCPNiagaraCommands::GetNodeDetails(UNiagaraNo
     else if (UNiagaraNodeOutput* OutputNode = Cast<UNiagaraNodeOutput>(Node))
     {
         NodeJson->SetStringField(TEXT("usage"), TEXT("output"));
+    }
+    // CustomHlsl node (must check before FunctionCall since CustomHlsl inherits from it)
+    else if (UNiagaraNodeCustomHlsl* CustomHlslNode = Cast<UNiagaraNodeCustomHlsl>(Node))
+    {
+        NodeJson->SetStringField(TEXT("usage"), TEXT("custom_hlsl"));
+        
+        // Get HLSL code using reflection (CustomHlsl is private in MinimalAPI class)
+        if (FStrProperty* CustomHlslProperty = CastField<FStrProperty>(CustomHlslNode->GetClass()->FindPropertyByName(TEXT("CustomHlsl"))))
+        {
+            FString CustomHlslValue = CustomHlslProperty->GetPropertyValue_InContainer(CustomHlslNode);
+            NodeJson->SetStringField(TEXT("hlsl_code"), CustomHlslValue);
+        }
+        
+        // Get script usage name using enum reflection
+        UEnum* ScriptUsageEnum = StaticEnum<ENiagaraScriptUsage>();
+        if (ScriptUsageEnum)
+        {
+            FString ScriptUsageName = ScriptUsageEnum->GetNameStringByValue((int64)CustomHlslNode->ScriptUsage);
+            NodeJson->SetStringField(TEXT("script_usage"), ScriptUsageName);
+        }
     }
     // Function call node
     else if (UNiagaraNodeFunctionCall* FuncNode = Cast<UNiagaraNodeFunctionCall>(Node))

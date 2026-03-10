@@ -151,6 +151,69 @@ __all__ = [..., "new_tool"]
 
 ## After Adding New Feature
 
-1. Update this skill if new patterns emerge
-2. Update project rules if new conventions established
-3. Document any UE version-specific quirks
+1. **Compile and Verify**
+   ```powershell
+   # Step 1: Compile
+   cd d:\CodeBuddy\rendering-mcp
+   powershell -ExecutionPolicy Bypass -File Build.ps1
+
+   # Step 2: Start UE Editor (user can help with this)
+   # The UE project is at: plugins/unreal/UnrealMCP/RenderingMCP/RenderingMCP.uproject
+
+   # Step 3: Test MCP tool immediately
+   # Use mcp_call_tool to verify the new functionality works
+   ```
+
+2. **Update Documentation**
+   - Update this skill if new patterns emerge
+   - Update project rules if new conventions established
+   - Document any UE version-specific quirks
+
+3. **Update Related Skills**
+   - If adding Niagara features → update `ue-niagara-workflow`
+   - If adding Material features → update `ue-material-workflow`
+   - If adding Rendering features → update `ue-rendering-pipeline`
+
+## Common UE 5.7 API Patterns
+
+### Accessing Private Properties via Reflection
+
+When a class uses `UCLASS(MinimalAPI)`, getter methods may not be exported. Use reflection:
+
+```cpp
+// Instead of: Obj->GetPrivateProperty()  // Link error!
+
+// Use reflection:
+if (FStrProperty* Prop = CastField<FStrProperty>(Obj->GetClass()->FindPropertyByName(TEXT("PrivateProperty"))))
+{
+    FString Value = Prop->GetPropertyValue_InContainer(Obj);
+}
+```
+
+### Enum to String Conversion
+
+```cpp
+UEnum* MyEnum = StaticEnum<EMyEnumType>();
+if (MyEnum)
+{
+    FString EnumName = MyEnum->GetNameStringByValue((int64)EnumValue);
+}
+```
+
+### Inheritance in Cast Checks
+
+Always check derived classes before base classes:
+
+```cpp
+// WRONG: CustomHlsl inherits from FunctionCall, this catches it first
+if (UNiagaraNodeFunctionCall* FuncNode = Cast<UNiagaraNodeFunctionCall>(Node))
+{ ... }
+else if (UNiagaraNodeCustomHlsl* HlslNode = Cast<UNiagaraNodeCustomHlsl>(Node))  // Never reached!
+{ ... }
+
+// CORRECT: Check derived class first
+if (UNiagaraNodeCustomHlsl* HlslNode = Cast<UNiagaraNodeCustomHlsl>(Node))
+{ ... }
+else if (UNiagaraNodeFunctionCall* FuncNode = Cast<UNiagaraNodeFunctionCall>(Node))
+{ ... }
+```

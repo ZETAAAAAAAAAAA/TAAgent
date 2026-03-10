@@ -62,6 +62,11 @@ public class UnrealMCP : ModuleRules
 		{
 			NiagaraPath = "E:/UE/UE_5.7/Engine/Plugins/FX/Niagara/Source/Niagara";
 		}
+		string NiagaraEditorPath = System.IO.Path.Combine(ModuleDirectory, "..", "..", "..", "..", "..", "..", "Engine", "Plugins", "FX", "Niagara", "Source", "NiagaraEditor");
+		if (!System.IO.Directory.Exists(NiagaraEditorPath))
+		{
+			NiagaraEditorPath = "E:/UE/UE_5.7/Engine/Plugins/FX/Niagara/Source/NiagaraEditor";
+		}
 		
 		// Add Internal include paths for Stateless API
 		if (System.IO.Directory.Exists(System.IO.Path.Combine(NiagaraShaderPath, "Internal")))
@@ -71,6 +76,11 @@ public class UnrealMCP : ModuleRules
 		if (System.IO.Directory.Exists(System.IO.Path.Combine(NiagaraPath, "Internal")))
 		{
 			PublicIncludePaths.Add(System.IO.Path.Combine(NiagaraPath, "Internal"));
+		}
+		// Add NiagaraEditor Public include path for UNiagaraNodeCustomHlsl
+		if (System.IO.Directory.Exists(System.IO.Path.Combine(NiagaraEditorPath, "Public")))
+		{
+			PublicIncludePaths.Add(System.IO.Path.Combine(NiagaraEditorPath, "Public"));
 		}
 		
 		PrivateDependencyModuleNames.AddRange(
